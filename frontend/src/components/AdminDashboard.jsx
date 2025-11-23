@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
-import { BsBarChart, BsPeople, BsBook, BsPencilSquare, BsClipboardData, BsMortarboard, BsCheckCircle, BsCash, BsCreditCard, BsCalendar, BsBell, BsExclamationTriangle, BsHospital, BsXCircle, BsPerson, BsGraphUp } from 'react-icons/bs';
+import { BsBarChart, BsPeople, BsBook, BsPencilSquare, BsClipboardData, BsMortarboard, BsCheckCircle, BsCash, BsCreditCard, BsCalendar, BsBell, BsExclamationTriangle, BsHospital, BsXCircle, BsPerson, BsGraphUp, BsSun, BsMoon } from 'react-icons/bs';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
 const AdminDashboard = ({ onLogout }) => {
@@ -28,6 +28,7 @@ const AdminDashboard = ({ onLogout }) => {
   const [search, setSearch] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
 
   // Debounced search state
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -389,15 +390,15 @@ const AdminDashboard = ({ onLogout }) => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className={`flex h-screen ${darkMode ? 'dark' : ''} bg-custom-primary`}>
       {/* Sidebar */}
       <div 
-        className={`bg-white shadow-lg transition-all duration-300 border-r border-gray-200 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}
+        className={`bg-custom-secondary shadow-lg transition-all duration-300 border-r border-custom-primary ${sidebarCollapsed ? 'w-16' : 'w-64'}`}
         onMouseEnter={() => setSidebarCollapsed(false)}
         onMouseLeave={() => setSidebarCollapsed(true)}
       >
-        <div className="px-6 h-16 flex flex-col justify-center items-center border-b border-gray-200">
-          {!sidebarCollapsed && <h2 className="text-2xl font-bold text-gray-800">Admin Panel</h2>}
+        <div className="px-6 h-16 flex flex-col justify-center items-center border-b border-custom-primary">
+          {!sidebarCollapsed && <h2 className="text-2xl font-bold text-custom-primary">Admin Panel</h2>}
         </div>
         <nav className="mt-6">
           {[
@@ -421,8 +422,8 @@ const AdminDashboard = ({ onLogout }) => {
             <button
               key={key}
               onClick={() => { setActiveTab(key); setSearch(''); }}
-              className={`w-full text-left px-6 py-4 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center transition-all duration-200 ${
-                activeTab === key ? 'bg-blue-50 text-blue-600 border-r-4 border-blue-600 shadow-sm' : ''
+              className={`w-full text-left px-6 py-4 text-custom-secondary hover:bg-custom-hover hover:text-custom-accent flex items-center transition-all duration-200 ${
+                activeTab === key ? 'bg-custom-accent text-custom-accent border-r-4 border-custom-accent shadow-sm' : ''
               } ${sidebarCollapsed ? 'justify-center px-3' : ''}`}
             >
               <span className="mr-3 text-lg">{icon}</span>
@@ -435,8 +436,8 @@ const AdminDashboard = ({ onLogout }) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white shadow-sm px-6 py-4 flex justify-between items-center border-b border-gray-200">
-          <h1 className="text-3xl font-bold text-gray-800">
+        <header className="bg-custom-secondary shadow-sm px-6 py-4 flex justify-between items-center border-b border-custom-primary">
+          <h1 className="text-3xl font-bold text-custom-primary">
             {activeTab === 'overview' && 'Dashboard Overview'}
             {activeTab === 'profile' && 'My Profile'}
             {activeTab === 'students' && 'Student Management'}
@@ -454,58 +455,66 @@ const AdminDashboard = ({ onLogout }) => {
             {activeTab === 'health' && 'Health Records Management'}
             {activeTab === 'study-materials' && 'Study Materials Management'}
           </h1>
-          <div className="relative">
-            <div 
-              className="flex items-center space-x-4 cursor-pointer p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              onClick={() => setDropdownOpen(!dropdownOpen)}
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 rounded-lg bg-custom-tertiary text-custom-secondary hover:bg-custom-hover transition-colors"
             >
-              <div className="text-right">
-                <p className="text-sm font-semibold text-gray-800">admin</p>
-                <p className="text-xs text-gray-500">admin@example.com</p>
+              {darkMode ? <BsSun className="text-xl" /> : <BsMoon className="text-xl" />}
+            </button>
+            <div className="relative">
+              <div 
+                className="flex items-center space-x-4 cursor-pointer p-2 rounded-lg hover:bg-custom-hover transition-colors"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+              >
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-custom-primary">admin</p>
+                  <p className="text-xs text-custom-tertiary">admin@example.com</p>
+                </div>
+                <div className="w-12 h-12 rounded-full bg-linear-to-r from-blue-500 to-blue-600 flex items-center justify-center overflow-hidden shadow-md">
+                  {user?.profile_picture ? (
+                    <img
+                      src={`http://localhost:8000/storage/${user.profile_picture}`}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <BsPerson className="text-xl text-white" />
+                  )}
+                </div>
               </div>
-              <div className="w-12 h-12 rounded-full bg-linear-to-r from-blue-500 to-blue-600 flex items-center justify-center overflow-hidden shadow-md">
-                {user?.profile_picture ? (
-                  <img
-                    src={`http://localhost:8000/storage/${user.profile_picture}`}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <BsPerson className="text-xl text-white" />
-                )}
-              </div>
+              {dropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-custom-secondary rounded-xl shadow-xl z-10 border border-custom-primary overflow-hidden">
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      onLogout();
+                    }}
+                    className="block w-full px-4 py-3 text-sm text-custom-secondary hover:bg-custom-hover hover:text-custom-primary transition-colors text-left"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
             </div>
-            {dropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl z-10 border border-gray-200 overflow-hidden">
-                <button
-                  onClick={() => {
-                    setDropdownOpen(false);
-                    onLogout();
-                  }}
-                  className="block w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors text-left"
-                >
-                  Logout
-                </button>
-              </div>
-            )}
           </div>
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-custom-primary p-6">
           {activeTab === 'overview' && (
             <div className="space-y-8">
               {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {stats.map((stat, index) => (
-                  <div key={index} className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 border border-gray-100">
+                  <div key={index} className="bg-custom-secondary rounded-xl shadow-sm p-6 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 border border-custom-primary">
                     <div className="flex items-center">
                       <div className={`p-4 rounded-xl ${stat.color} text-white text-3xl shadow-sm`}>
                         {stat.icon}
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{stat.title}</p>
-                        <p className="text-3xl font-bold text-gray-800">{stat.value}</p>
+                        <p className="text-sm font-semibold text-custom-tertiary uppercase tracking-wide">{stat.title}</p>
+                        <p className="text-3xl font-bold text-custom-primary">{stat.value}</p>
                       </div>
                     </div>
                   </div>
@@ -513,126 +522,126 @@ const AdminDashboard = ({ onLogout }) => {
               </div>
 
               {/* System Features Overview */}
-              <div className="bg-white rounded-xl shadow-sm p-8 border border-gray-100">
-                <h3 className="text-2xl font-bold text-gray-800 mb-8 text-center">System Features Overview</h3>
+              <div className="bg-custom-secondary rounded-xl shadow-sm p-8 border border-custom-primary">
+                <h3 className="text-2xl font-bold text-custom-primary mb-8 text-center">System Features Overview</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-blue-300 bg-white">
+                  <div className="border border-custom-primary rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-blue-300 bg-custom-secondary">
                     <div className="flex items-center mb-4">
                       <BsPeople className="text-blue-500 text-2xl mr-4" />
-                      <h4 className="text-xl font-semibold text-gray-800">Student Management</h4>
+                      <h4 className="text-xl font-semibold text-custom-primary">Student Management</h4>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">Manage student profiles, enrollment, and personal information. Track student progress and maintain comprehensive student records.</p>
+                    <p className="text-sm text-custom-secondary leading-relaxed">Manage student profiles, enrollment, and personal information. Track student progress and maintain comprehensive student records.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-green-300 bg-white">
+                  <div className="border border-custom-primary rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-green-300 bg-custom-secondary">
                     <div className="flex items-center mb-4">
                       <BsBook className="text-green-500 text-2xl mr-4" />
-                      <h4 className="text-xl font-semibold text-gray-800">Course Management</h4>
+                      <h4 className="text-xl font-semibold text-custom-primary">Course Management</h4>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">Create and manage courses, assign instructors, set credits, and organize course offerings by department and academic year.</p>
+                    <p className="text-sm text-custom-secondary leading-relaxed">Create and manage courses, assign instructors, set credits, and organize course offerings by department and academic year.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-purple-300 bg-white">
+                  <div className="border border-custom-primary rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-purple-300 bg-custom-secondary">
                     <div className="flex items-center mb-4">
                       <BsPencilSquare className="text-purple-500 text-2xl mr-4" />
-                      <h4 className="text-xl font-semibold text-gray-800">Admissions</h4>
+                      <h4 className="text-xl font-semibold text-custom-primary">Admissions</h4>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">Handle student applications, review submissions, and manage the admission process from application to enrollment.</p>
+                    <p className="text-sm text-custom-secondary leading-relaxed">Handle student applications, review submissions, and manage the admission process from application to enrollment.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-indigo-300 bg-white">
+                  <div className="border border-custom-primary rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-indigo-300 bg-custom-secondary">
                     <div className="flex items-center mb-4">
                       <BsClipboardData className="text-indigo-500 text-2xl mr-4" />
-                      <h4 className="text-xl font-semibold text-gray-800">Assessments</h4>
+                      <h4 className="text-xl font-semibold text-custom-primary">Assessments</h4>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">Create and manage assessments, quizzes, and exams. Set due dates, weightage, and track assessment schedules.</p>
+                    <p className="text-sm text-custom-secondary leading-relaxed">Create and manage assessments, quizzes, and exams. Set due dates, weightage, and track assessment schedules.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-blue-300 bg-white">
+                  <div className="border border-custom-primary rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-blue-300 bg-custom-secondary">
                     <div className="flex items-center mb-4">
                       <BsPencilSquare className="text-blue-600 text-2xl mr-4" />
-                      <h4 className="text-xl font-semibold text-gray-800">Grade Management</h4>
+                      <h4 className="text-xl font-semibold text-custom-primary">Grade Management</h4>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">Record and manage student grades, calculate GPA, and maintain detailed academic performance records.</p>
+                    <p className="text-sm text-custom-secondary leading-relaxed">Record and manage student grades, calculate GPA, and maintain detailed academic performance records.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-cyan-300 bg-white">
+                  <div className="border border-custom-primary rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-cyan-300 bg-custom-secondary">
                     <div className="flex items-center mb-4">
                       <BsMortarboard className="text-cyan-500 text-2xl mr-4" />
-                      <h4 className="text-xl font-semibold text-gray-800">Enrollments</h4>
+                      <h4 className="text-xl font-semibold text-custom-primary">Enrollments</h4>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">Manage course enrollments, track student registrations, and handle enrollment changes and withdrawals.</p>
+                    <p className="text-sm text-custom-secondary leading-relaxed">Manage course enrollments, track student registrations, and handle enrollment changes and withdrawals.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-emerald-300 bg-white">
+                  <div className="border border-custom-primary rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-emerald-300 bg-custom-secondary">
                     <div className="flex items-center mb-4">
                       <BsCheckCircle className="text-emerald-500 text-2xl mr-4" />
-                      <h4 className="text-xl font-semibold text-gray-800">Attendance Tracking</h4>
+                      <h4 className="text-xl font-semibold text-custom-primary">Attendance Tracking</h4>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">Monitor student attendance, record daily presence, and generate attendance reports for academic tracking.</p>
+                    <p className="text-sm text-custom-secondary leading-relaxed">Monitor student attendance, record daily presence, and generate attendance reports for academic tracking.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-red-300 bg-white">
+                  <div className="border border-custom-primary rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-red-300 bg-custom-secondary">
                     <div className="flex items-center mb-4">
                       <BsCash className="text-red-500 text-2xl mr-4" />
-                      <h4 className="text-xl font-semibold text-gray-800">Fee Management</h4>
+                      <h4 className="text-xl font-semibold text-custom-primary">Fee Management</h4>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">Set up fee structures, track outstanding payments, and manage tuition and other educational fees.</p>
+                    <p className="text-sm text-custom-secondary leading-relaxed">Set up fee structures, track outstanding payments, and manage tuition and other educational fees.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-orange-300 bg-white">
+                  <div className="border border-custom-primary rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-orange-300 bg-custom-secondary">
                     <div className="flex items-center mb-4">
                       <BsCreditCard className="text-orange-500 text-2xl mr-4" />
-                      <h4 className="text-xl font-semibold text-gray-800">Payment Processing</h4>
+                      <h4 className="text-xl font-semibold text-custom-primary">Payment Processing</h4>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">Process payments, track payment history, and manage financial transactions for fees and services.</p>
+                    <p className="text-sm text-custom-secondary leading-relaxed">Process payments, track payment history, and manage financial transactions for fees and services.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-pink-300 bg-white">
+                  <div className="border border-custom-primary rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-pink-300 bg-custom-secondary">
                     <div className="flex items-center mb-4">
                       <BsCalendar className="text-pink-500 text-2xl mr-4" />
-                      <h4 className="text-xl font-semibold text-gray-800">Schedule Management</h4>
+                      <h4 className="text-xl font-semibold text-custom-primary">Schedule Management</h4>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">Create class schedules, manage timetables, and organize academic calendars and course timings.</p>
+                    <p className="text-sm text-custom-secondary leading-relaxed">Create class schedules, manage timetables, and organize academic calendars and course timings.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-gray-300 bg-white">
+                  <div className="border border-custom-primary rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-gray-300 bg-custom-secondary">
                     <div className="flex items-center mb-4">
                       <BsBell className="text-gray-500 text-2xl mr-4" />
-                      <h4 className="text-xl font-semibold text-gray-800">Notifications</h4>
+                      <h4 className="text-xl font-semibold text-custom-primary">Notifications</h4>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">Send announcements, alerts, and important messages to students, staff, and parents.</p>
+                    <p className="text-sm text-custom-secondary leading-relaxed">Send announcements, alerts, and important messages to students, staff, and parents.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-amber-300 bg-white">
+                  <div className="border border-custom-primary rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-amber-300 bg-custom-secondary">
                     <div className="flex items-center mb-4">
                       <BsExclamationTriangle className="text-amber-500 text-2xl mr-4" />
-                      <h4 className="text-xl font-semibold text-gray-800">Behavior Management</h4>
+                      <h4 className="text-xl font-semibold text-custom-primary">Behavior Management</h4>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">Track student behavior incidents, maintain disciplinary records, and manage behavioral interventions.</p>
+                    <p className="text-sm text-custom-secondary leading-relaxed">Track student behavior incidents, maintain disciplinary records, and manage behavioral interventions.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-teal-300 bg-white">
+                  <div className="border border-custom-primary rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-teal-300 bg-custom-secondary">
                     <div className="flex items-center mb-4">
                       <BsHospital className="text-teal-500 text-2xl mr-4" />
-                      <h4 className="text-xl font-semibold text-gray-800">Health Records</h4>
+                      <h4 className="text-xl font-semibold text-custom-primary">Health Records</h4>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">Maintain student health information, track medical records, and manage health-related documentation.</p>
+                    <p className="text-sm text-custom-secondary leading-relaxed">Maintain student health information, track medical records, and manage health-related documentation.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-violet-300 bg-white">
+                  <div className="border border-custom-primary rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-violet-300 bg-custom-secondary">
                     <div className="flex items-center mb-4">
                       <BsPerson className="text-violet-500 text-2xl mr-4" />
-                      <h4 className="text-xl font-semibold text-gray-800">User Management</h4>
+                      <h4 className="text-xl font-semibold text-custom-primary">User Management</h4>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">Manage system users, roles, and permissions. Handle authentication and access control for the platform.</p>
+                    <p className="text-sm text-custom-secondary leading-relaxed">Manage system users, roles, and permissions. Handle authentication and access control for the platform.</p>
                   </div>
                 </div>
               </div>
 
               {/* Quick Actions */}
-              <div className="bg-white rounded-xl shadow-sm p-8 border border-gray-100">
-                <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Quick Actions</h3>
+              <div className="bg-custom-secondary rounded-xl shadow-sm p-8 border border-custom-primary">
+                <h3 className="text-2xl font-bold text-custom-primary mb-6 text-center">Quick Actions</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   <button
                     onClick={() => handleCreate('students')}
@@ -668,22 +677,23 @@ const AdminDashboard = ({ onLogout }) => {
               {/* Data Visualization Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Student Department Distribution */}
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <div className="bg-custom-secondary rounded-xl shadow-sm p-6 border border-custom-primary hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-custom-primary mb-4 flex items-center">
                     <BsBarChart className="mr-3 text-blue-500" />
                     Students by Department
                   </h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={getStudentDepartmentData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="department" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#4b5563" : "#f0f0f0"} />
+                      <XAxis dataKey="department" tick={{ fontSize: 12, fill: darkMode ? '#9ca3af' : '#374151' }} />
+                      <YAxis tick={{ fontSize: 12, fill: darkMode ? '#9ca3af' : '#374151' }} />
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: '#fff', 
-                          border: '1px solid #e5e7eb', 
+                          backgroundColor: darkMode ? '#374151' : '#fff', 
+                          border: darkMode ? '1px solid #4b5563' : '1px solid #e5e7eb', 
                           borderRadius: '8px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                          color: darkMode ? '#f3f4f6' : '#374151'
                         }}
                       />
                       <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
@@ -692,8 +702,8 @@ const AdminDashboard = ({ onLogout }) => {
                 </div>
 
                 {/* Application Status Distribution */}
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <div className="bg-custom-secondary rounded-xl shadow-sm p-6 border border-custom-primary hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-custom-primary mb-4 flex items-center">
                     <BsPencilSquare className="mr-3 text-green-500" />
                     Application Status
                   </h3>
@@ -714,10 +724,11 @@ const AdminDashboard = ({ onLogout }) => {
                       </Pie>
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: '#fff', 
-                          border: '1px solid #e5e7eb', 
+                          backgroundColor: darkMode ? '#374151' : '#fff', 
+                          border: darkMode ? '1px solid #4b5563' : '1px solid #e5e7eb', 
                           borderRadius: '8px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                          color: darkMode ? '#f3f4f6' : '#374151'
                         }}
                       />
                       <Legend />
@@ -726,22 +737,23 @@ const AdminDashboard = ({ onLogout }) => {
                 </div>
 
                 {/* Grade Distribution */}
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <div className="bg-custom-secondary rounded-xl shadow-sm p-6 border border-custom-primary hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-custom-primary mb-4 flex items-center">
                     <BsGraphUp className="mr-3 text-purple-500" />
                     Grade Distribution
                   </h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={getGradeDistributionData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="range" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#4b5563" : "#f0f0f0"} />
+                      <XAxis dataKey="range" tick={{ fontSize: 12, fill: darkMode ? '#9ca3af' : '#374151' }} />
+                      <YAxis tick={{ fontSize: 12, fill: darkMode ? '#9ca3af' : '#374151' }} />
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: '#fff', 
-                          border: '1px solid #e5e7eb', 
+                          backgroundColor: darkMode ? '#374151' : '#fff', 
+                          border: darkMode ? '1px solid #4b5563' : '1px solid #e5e7eb', 
                           borderRadius: '8px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                          color: darkMode ? '#f3f4f6' : '#374151'
                         }}
                       />
                       <Bar dataKey="count" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
@@ -750,8 +762,8 @@ const AdminDashboard = ({ onLogout }) => {
                 </div>
 
                 {/* Fee Payment Status */}
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <div className="bg-custom-secondary rounded-xl shadow-sm p-6 border border-custom-primary hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-custom-primary mb-4 flex items-center">
                     <BsCash className="mr-3 text-red-500" />
                     Fee Payment Status
                   </h3>
@@ -772,10 +784,11 @@ const AdminDashboard = ({ onLogout }) => {
                       </Pie>
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: '#fff', 
-                          border: '1px solid #e5e7eb', 
+                          backgroundColor: darkMode ? '#374151' : '#fff', 
+                          border: darkMode ? '1px solid #4b5563' : '1px solid #e5e7eb', 
                           borderRadius: '8px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                          color: darkMode ? '#f3f4f6' : '#374151'
                         }}
                       />
                       <Legend />
@@ -784,22 +797,23 @@ const AdminDashboard = ({ onLogout }) => {
                 </div>
 
                 {/* Attendance Trend */}
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <div className="bg-custom-secondary rounded-xl shadow-sm p-6 border border-custom-primary hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-custom-primary mb-4 flex items-center">
                     <BsCheckCircle className="mr-3 text-cyan-500" />
                     Attendance Trend (Last 30 Days)
                   </h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <AreaChart data={getAttendanceTrendData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#4b5563" : "#f0f0f0"} />
+                      <XAxis dataKey="date" tick={{ fontSize: 12, fill: darkMode ? '#9ca3af' : '#374151' }} />
+                      <YAxis tick={{ fontSize: 12, fill: darkMode ? '#9ca3af' : '#374151' }} />
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: '#fff', 
-                          border: '1px solid #e5e7eb', 
+                          backgroundColor: darkMode ? '#374151' : '#fff', 
+                          border: darkMode ? '1px solid #4b5563' : '1px solid #e5e7eb', 
                           borderRadius: '8px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                          color: darkMode ? '#f3f4f6' : '#374151'
                         }}
                       />
                       <Area type="monotone" dataKey="present" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.8} />
@@ -809,22 +823,23 @@ const AdminDashboard = ({ onLogout }) => {
                 </div>
 
                 {/* Assessment Types */}
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <div className="bg-custom-secondary rounded-xl shadow-sm p-6 border border-custom-primary hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-custom-primary mb-4 flex items-center">
                     <BsClipboardData className="mr-3 text-indigo-500" />
                     Assessment Types
                   </h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={getAssessmentTypeData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="type" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#4b5563" : "#f0f0f0"} />
+                      <XAxis dataKey="type" tick={{ fontSize: 12, fill: darkMode ? '#9ca3af' : '#374151' }} />
+                      <YAxis tick={{ fontSize: 12, fill: darkMode ? '#9ca3af' : '#374151' }} />
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: '#fff', 
-                          border: '1px solid #e5e7eb', 
+                          backgroundColor: darkMode ? '#374151' : '#fff', 
+                          border: darkMode ? '1px solid #4b5563' : '1px solid #e5e7eb', 
                           borderRadius: '8px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                          color: darkMode ? '#f3f4f6' : '#374151'
                         }}
                       />
                       <Bar dataKey="count" fill="#6366F1" radius={[4, 4, 0, 0]} />
@@ -833,8 +848,8 @@ const AdminDashboard = ({ onLogout }) => {
                 </div>
 
                 {/* User Roles Distribution */}
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <div className="bg-custom-secondary rounded-xl shadow-sm p-6 border border-custom-primary hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-custom-primary mb-4 flex items-center">
                     <BsPerson className="mr-3 text-blue-600" />
                     User Roles
                   </h3>
@@ -853,10 +868,11 @@ const AdminDashboard = ({ onLogout }) => {
                       </Pie>
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: '#fff', 
-                          border: '1px solid #e5e7eb', 
+                          backgroundColor: darkMode ? '#374151' : '#fff', 
+                          border: darkMode ? '1px solid #4b5563' : '1px solid #e5e7eb', 
                           borderRadius: '8px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                          color: darkMode ? '#f3f4f6' : '#374151'
                         }}
                       />
                       <Legend />
@@ -865,22 +881,23 @@ const AdminDashboard = ({ onLogout }) => {
                 </div>
 
                 {/* Behavior Incidents */}
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <div className="bg-custom-secondary rounded-xl shadow-sm p-6 border border-custom-primary hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-custom-primary mb-4 flex items-center">
                     <BsExclamationTriangle className="mr-3 text-red-500" />
                     Behavior Incidents by Type
                   </h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={getBehaviorTypeData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="type" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#4b5563" : "#f0f0f0"} />
+                      <XAxis dataKey="type" tick={{ fontSize: 12, fill: darkMode ? '#9ca3af' : '#374151' }} />
+                      <YAxis tick={{ fontSize: 12, fill: darkMode ? '#9ca3af' : '#374151' }} />
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: '#fff', 
-                          border: '1px solid #e5e7eb', 
+                          backgroundColor: darkMode ? '#374151' : '#fff', 
+                          border: darkMode ? '1px solid #4b5563' : '1px solid #e5e7eb', 
                           borderRadius: '8px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                          color: darkMode ? '#f3f4f6' : '#374151'
                         }}
                       />
                       <Bar dataKey="count" fill="#EF4444" radius={[4, 4, 0, 0]} />
@@ -889,22 +906,23 @@ const AdminDashboard = ({ onLogout }) => {
                 </div>
 
                 {/* Health Records */}
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300 col-span-1 lg:col-span-2">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <div className="bg-custom-secondary rounded-xl shadow-sm p-6 border border-custom-primary hover:shadow-md transition-shadow duration-300 col-span-1 lg:col-span-2">
+                  <h3 className="text-xl font-bold text-custom-primary mb-4 flex items-center">
                     <BsHospital className="mr-3 text-emerald-500" />
                     Health Records by Type
                   </h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={getHealthRecordTypeData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="type" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#4b5563" : "#f0f0f0"} />
+                      <XAxis dataKey="type" tick={{ fontSize: 12, fill: darkMode ? '#9ca3af' : '#374151' }} />
+                      <YAxis tick={{ fontSize: 12, fill: darkMode ? '#9ca3af' : '#374151' }} />
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: '#fff', 
-                          border: '1px solid #e5e7eb', 
+                          backgroundColor: darkMode ? '#374151' : '#fff', 
+                          border: darkMode ? '1px solid #4b5563' : '1px solid #e5e7eb', 
                           borderRadius: '8px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                          color: darkMode ? '#f3f4f6' : '#374151'
                         }}
                       />
                       <Bar dataKey="count" fill="#10B981" radius={[4, 4, 0, 0]} />
@@ -927,11 +945,11 @@ const AdminDashboard = ({ onLogout }) => {
                   placeholder="Search students..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
                 <button
                   onClick={() => handleCreate('students')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
                 >
                   Add New Student
                 </button>
@@ -957,7 +975,7 @@ const AdminDashboard = ({ onLogout }) => {
               <div className="mb-4">
                 <button
                   onClick={() => handleCreate('courses')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
                 >
                   Add New Course
                 </button>
@@ -983,7 +1001,7 @@ const AdminDashboard = ({ onLogout }) => {
               <div className="mb-4">
                 <button
                   onClick={() => handleCreate('applications')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
                 >
                   Add New Application
                 </button>
@@ -999,9 +1017,9 @@ const AdminDashboard = ({ onLogout }) => {
                   { key: 'department', label: 'Department' },
                   { key: 'status', label: 'Status', render: (value) => (
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      value === 'approved' ? 'bg-green-100 text-green-800' :
-                      value === 'rejected' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
+                      value === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                      value === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                     }`}>
                       {value}
                     </span>
@@ -1018,7 +1036,7 @@ const AdminDashboard = ({ onLogout }) => {
               <div className="mb-4">
                 <button
                   onClick={() => handleCreate('assessments')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
                 >
                   Add New Assessment
                 </button>
@@ -1044,7 +1062,7 @@ const AdminDashboard = ({ onLogout }) => {
               <div className="mb-4">
                 <button
                   onClick={() => handleCreate('grades')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
                 >
                   Add New Grade
                 </button>
@@ -1057,9 +1075,9 @@ const AdminDashboard = ({ onLogout }) => {
                   { key: 'assessment.assessment_name', label: 'Assessment', render: (_, row) => row.assessment?.assessment_name },
                   { key: 'percentage', label: 'Grade (%)', render: (value) => (
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      value >= 80 ? 'bg-green-100 text-green-800' :
-                      value >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
+                      value >= 80 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                      value >= 60 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                      'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                     }`}>
                       {value}%
                     </span>
@@ -1079,7 +1097,7 @@ const AdminDashboard = ({ onLogout }) => {
               <div className="mb-4">
                 <button
                   onClick={() => handleCreate('enrollments')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
                 >
                   Add New Enrollment
                 </button>
@@ -1103,7 +1121,7 @@ const AdminDashboard = ({ onLogout }) => {
               <div className="mb-4">
                 <button
                   onClick={() => handleCreate('attendance')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
                 >
                   Add New Attendance
                 </button>
@@ -1117,7 +1135,7 @@ const AdminDashboard = ({ onLogout }) => {
                   { key: 'date', label: 'Date', render: (value) => new Date(value).toLocaleDateString() },
                   { key: 'status', label: 'Status', render: (value) => (
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      value === 'present' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      value === 'present' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                     }`}>
                       {value}
                     </span>
@@ -1134,7 +1152,7 @@ const AdminDashboard = ({ onLogout }) => {
               <div className="mb-4">
                 <button
                   onClick={() => handleCreate('fees')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
                 >
                   Add New Fee
                 </button>
@@ -1149,9 +1167,9 @@ const AdminDashboard = ({ onLogout }) => {
                   { key: 'due_date', label: 'Due Date', render: (value) => new Date(value).toLocaleDateString() },
                   { key: 'status', label: 'Status', render: (value) => (
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      value === 'paid' ? 'bg-green-100 text-green-800' :
-                      value === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
+                      value === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                      value === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                      'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                     }`}>
                       {value}
                     </span>
@@ -1168,7 +1186,7 @@ const AdminDashboard = ({ onLogout }) => {
               <div className="mb-4">
                 <button
                   onClick={() => handleCreate('payments')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
                 >
                   Add New Payment
                 </button>
@@ -1194,7 +1212,7 @@ const AdminDashboard = ({ onLogout }) => {
               <div className="mb-4">
                 <button
                   onClick={() => handleCreate('schedules')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
                 >
                   Add New Schedule
                 </button>
@@ -1221,7 +1239,7 @@ const AdminDashboard = ({ onLogout }) => {
               <div className="mb-4">
                 <button
                   onClick={() => handleCreate('notifications')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
                 >
                   Add New Notification
                 </button>
@@ -1233,7 +1251,7 @@ const AdminDashboard = ({ onLogout }) => {
                   { key: 'user.username', label: 'User', render: (_, row) => row.user?.username },
                   { key: 'title', label: 'Title' },
                   { key: 'type', label: 'Type' },
-                  { key: 'is_read', label: 'Read', render: (value) => value ? <BsCheckCircle className="text-green-500" /> : <BsXCircle className="text-red-500" /> },
+                  { key: 'is_read', label: 'Read', render: (value) => value ? <BsCheckCircle className="text-green-500 dark:text-green-400" /> : <BsXCircle className="text-red-500 dark:text-red-400" /> },
                   { key: 'created_at', label: 'Date', render: (value) => new Date(value).toLocaleDateString() },
                 ]}
                 onEdit={(item) => handleEdit('notifications', item)}
@@ -1247,7 +1265,7 @@ const AdminDashboard = ({ onLogout }) => {
               <div className="mb-4">
                 <button
                   onClick={() => handleCreate('behavior-logs')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
                 >
                   Add New Behavior Log
                 </button>
@@ -1273,7 +1291,7 @@ const AdminDashboard = ({ onLogout }) => {
               <div className="mb-4">
                 <button
                   onClick={() => handleCreate('health-records')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
                 >
                   Add New Health Record
                 </button>
@@ -1299,7 +1317,7 @@ const AdminDashboard = ({ onLogout }) => {
               <div className="mb-4">
                 <button
                   onClick={() => handleCreate('study-materials')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
                 >
                   Upload Study Material
                 </button>
@@ -1316,7 +1334,7 @@ const AdminDashboard = ({ onLogout }) => {
                   { key: 'file_size', label: 'Size (KB)', render: (value) => `${(value / 1024).toFixed(2)} KB` },
                   { key: 'is_visible', label: 'Visible', render: (value) => (
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      value ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                     }`}>
                       {value ? 'Yes' : 'No'}
                     </span>
@@ -1353,31 +1371,31 @@ const AdminDashboard = ({ onLogout }) => {
 
 // Reusable DataTable component
 const DataTable = ({ title, data, columns, onEdit, onDelete, onView }) => (
-  <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-shadow duration-300">
-    <div className="px-8 py-6 border-b border-gray-200 bg-gray-50">
-      <h3 className="text-xl font-bold text-gray-800">{title}</h3>
+  <div className="bg-custom-secondary rounded-xl shadow-sm overflow-hidden border border-custom-primary hover:shadow-md transition-shadow duration-300">
+    <div className="px-8 py-6 border-b border-custom-primary bg-custom-tertiary">
+      <h3 className="text-xl font-bold text-custom-primary">{title}</h3>
     </div>
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
+        <thead className="bg-custom-tertiary">
           <tr>
             {columns.map((col, index) => (
-              <th key={index} className="px-8 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+              <th key={index} className="px-8 py-4 text-left text-xs font-bold text-custom-secondary uppercase tracking-wider">
                 {col.label}
               </th>
             ))}
             {(onEdit || onDelete || onView) && (
-              <th className="px-8 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+              <th className="px-8 py-4 text-left text-xs font-bold text-custom-secondary uppercase tracking-wider">
                 Actions
               </th>
             )}
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-100">
+        <tbody className="bg-custom-secondary divide-y divide-custom-primary">
           {data.map((row, index) => (
-            <tr key={index} className="hover:bg-gray-50 transition-colors duration-200">
+            <tr key={index} className="hover:bg-custom-hover transition-colors duration-200">
               {columns.map((col, colIndex) => (
-                <td key={colIndex} className="px-8 py-4 whitespace-nowrap text-sm text-gray-800">
+                <td key={colIndex} className="px-8 py-4 whitespace-nowrap text-sm text-custom-primary">
                   {col.render ? col.render(getNestedValue(row, col.key), row) : getNestedValue(row, col.key)}
                 </td>
               ))}
@@ -1386,7 +1404,7 @@ const DataTable = ({ title, data, columns, onEdit, onDelete, onView }) => (
                   {onView && (
                     <button
                       onClick={() => onView(row)}
-                      className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 shadow-sm"
+                      className="inline-flex items-center px-3 py-1.5 bg-blue-600 dark:bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors duration-200 shadow-sm"
                     >
                       <BsBarChart className="mr-1" />
                       View
@@ -1395,7 +1413,7 @@ const DataTable = ({ title, data, columns, onEdit, onDelete, onView }) => (
                   {onEdit && (
                     <button
                       onClick={() => onEdit(row)}
-                      className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 shadow-sm"
+                      className="inline-flex items-center px-3 py-1.5 bg-blue-600 dark:bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors duration-200 shadow-sm"
                     >
                       <BsPencilSquare className="mr-1" />
                       Edit
@@ -1404,7 +1422,7 @@ const DataTable = ({ title, data, columns, onEdit, onDelete, onView }) => (
                   {onDelete && (
                     <button
                       onClick={() => onDelete(row.id)}
-                      className="inline-flex items-center px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors duration-200 shadow-sm"
+                      className="inline-flex items-center px-3 py-1.5 bg-red-600 dark:bg-red-500 text-white text-xs font-medium rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors duration-200 shadow-sm"
                     >
                       <BsXCircle className="mr-1" />
                       Delete
@@ -1669,21 +1687,21 @@ const Modal = ({ type, mode, item, onClose, onSave, courses, students, assessmen
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" onClick={onClose}>
-      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white" onClick={(e) => e.stopPropagation()}>
+      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-custom-secondary" onClick={(e) => e.stopPropagation()}>
         <div className="mt-3">
-          <h3 className="text-lg font-medium text-gray-800 mb-4">
+          <h3 className="text-lg font-medium text-custom-primary mb-4">
             {mode === 'create' ? 'Add New' : 'Edit'} {type.slice(0, -1)}
           </h3>
           <form onSubmit={handleSubmit}>
             {getFields(formData).map((field) => (
               <div key={field.name} className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                <label className="block text-sm font-medium text-custom-secondary">{field.label}</label>
                 {field.type === 'select' ? (
                   <select
                     name={field.name}
                     value={formData[field.name] || ''}
                     onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="mt-1 block w-full px-3 py-2 border border-custom-primary rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     required={field.required}
                   >
                     <option value="">Select {field.label}</option>
@@ -1701,7 +1719,7 @@ const Modal = ({ type, mode, item, onClose, onSave, courses, students, assessmen
                       const file = e.target.files[0];
                       setFormData(prev => ({ ...prev, [field.name]: file }));
                     }}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="mt-1 block w-full px-3 py-2 border border-custom-primary rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     required={field.required}
                     accept={field.accept}
                   />
@@ -1711,7 +1729,7 @@ const Modal = ({ type, mode, item, onClose, onSave, courses, students, assessmen
                     value={formData[field.name] || ''}
                     onChange={handleChange}
                     rows={3}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="mt-1 block w-full px-3 py-2 border border-custom-primary rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     required={field.required}
                   />
                 ) : (
@@ -1720,7 +1738,7 @@ const Modal = ({ type, mode, item, onClose, onSave, courses, students, assessmen
                     name={field.name}
                     value={formData[field.name] || ''}
                     onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="mt-1 block w-full px-3 py-2 border border-custom-primary rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     required={field.required}
                     readOnly={field.readonly}
                   />
@@ -1816,13 +1834,13 @@ const AdminProfile = ({ user, onUserUpdate }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-custom-secondary rounded-lg shadow p-6 border border-custom-primary">
       <div className="flex justify-between items-center mb-6">
-        <h3 className="text-lg font-medium text-gray-800">Admin Profile</h3>
+        <h3 className="text-lg font-medium text-custom-primary">Admin Profile</h3>
         {!editMode ? (
           <button
             onClick={handleEditProfile}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
           >
             Edit Profile
           </button>
@@ -1830,13 +1848,13 @@ const AdminProfile = ({ user, onUserUpdate }) => {
           <div className="space-x-2">
             <button
               onClick={handleSaveProfile}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+              className="px-4 py-2 bg-green-600 dark:bg-green-500 text-white rounded-md hover:bg-green-700 dark:hover:bg-green-600"
             >
               Save
             </button>
             <button
               onClick={handleCancelEdit}
-              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+              className="px-4 py-2 bg-gray-600 dark:bg-gray-500 text-white rounded-md hover:bg-gray-700 dark:hover:bg-gray-600"
             >
               Cancel
             </button>
@@ -1846,7 +1864,7 @@ const AdminProfile = ({ user, onUserUpdate }) => {
       
       {/* Profile Picture Section */}
       <div className="mb-6 flex items-center space-x-6">
-        <div className="w-24 h-24 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
+        <div className="w-24 h-24 rounded-full bg-custom-tertiary flex items-center justify-center overflow-hidden">
           {localProfilePicture ? (
             <img
               src={localProfilePicture}
@@ -1860,12 +1878,12 @@ const AdminProfile = ({ user, onUserUpdate }) => {
               className="w-full h-full object-cover"
             />
           ) : (
-            <BsPerson className="text-3xl text-gray-600" />
+            <BsPerson className="text-3xl text-gray-600 dark:text-gray-400" />
           )}
         </div>
         {editMode && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
+            <label className="block text-sm font-medium text-custom-secondary mb-2">Profile Picture</label>
             <input
               type="file"
               accept="image/*"
@@ -1883,49 +1901,49 @@ const AdminProfile = ({ user, onUserUpdate }) => {
                   setLocalProfilePicture(null);
                 }
               }}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+              className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 dark:file:bg-blue-500 file:text-white hover:file:bg-blue-700 dark:hover:file:bg-blue-600"
             />
-            <p className="mt-1 text-xs text-gray-500">PNG, JPG, GIF up to 2MB</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">PNG, JPG, GIF up to 2MB</p>
           </div>
         )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Username</label>
+          <label className="block text-sm font-medium text-custom-secondary">Username</label>
           {editMode ? (
             <input
               type="text"
               name="username"
               value={editedUser.username || ''}
               onChange={handleUserChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="mt-1 block w-full px-3 py-2 border border-custom-primary rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-custom-secondary text-custom-primary"
             />
           ) : (
-            <p className="mt-1 text-sm text-gray-800">{user?.username}</p>
+            <p className="mt-1 text-sm text-custom-primary">{user?.username}</p>
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Email</label>
+          <label className="block text-sm font-medium text-custom-secondary">Email</label>
           {editMode ? (
             <input
               type="email"
               name="email"
               value={editedUser.email || ''}
               onChange={handleUserChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="mt-1 block w-full px-3 py-2 border border-custom-primary rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-custom-secondary text-custom-primary"
             />
           ) : (
-            <p className="mt-1 text-sm text-gray-800">{user?.email}</p>
+            <p className="mt-1 text-sm text-custom-primary">{user?.email}</p>
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Role</label>
-          <p className="mt-1 text-sm text-gray-800">{user?.role}</p>
+          <label className="block text-sm font-medium text-custom-secondary">Role</label>
+          <p className="mt-1 text-sm text-custom-primary">{user?.role}</p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Account Created</label>
-          <p className="mt-1 text-sm text-gray-800">{user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</p>
+          <label className="block text-sm font-medium text-custom-secondary">Account Created</label>
+          <p className="mt-1 text-sm text-custom-primary">{user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</p>
         </div>
       </div>
     </div>

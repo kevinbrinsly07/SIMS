@@ -1,1 +1,57 @@
 @import "tailwindcss";
+
+/* Custom Dark Mode Implementation */
+:root {
+  /* Light theme colors */
+  --bg-primary: #f9fafb;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f3f4f6;
+  --bg-accent: #dbeafe;
+  --bg-hover: #f1f5f9;
+
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --text-accent: #3b82f6;
+
+  --border-primary: #e5e7eb;
+  --border-secondary: #d1d5db;
+
+  --shadow: rgba(0, 0, 0, 0.1);
+}
+
+.dark {
+  /* Dark theme colors */
+  --bg-primary: #111827;
+  --bg-secondary: #1f2937;
+  --bg-tertiary: #374151;
+  --bg-accent: #1e3a8a;
+  --bg-hover: #374151;
+
+  --text-primary: #f9fafb;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #9ca3af;
+  --text-accent: #60a5fa;
+
+  --border-primary: #374151;
+  --border-secondary: #4b5563;
+
+  --shadow: rgba(0, 0, 0, 0.3);
+}
+
+/* Utility classes for custom dark mode */
+.bg-custom-primary { background-color: var(--bg-primary); }
+.bg-custom-secondary { background-color: var(--bg-secondary); }
+.bg-custom-tertiary { background-color: var(--bg-tertiary); }
+.bg-custom-accent { background-color: var(--bg-accent); }
+.bg-custom-hover { background-color: var(--bg-hover); }
+
+.text-custom-primary { color: var(--text-primary); }
+.text-custom-secondary { color: var(--text-secondary); }
+.text-custom-tertiary { color: var(--text-tertiary); }
+.text-custom-accent { color: var(--text-accent); }
+
+.border-custom-primary { border-color: var(--border-primary); }
+.border-custom-secondary { border-color: var(--border-secondary); }
+
+.shadow-custom { box-shadow: 0 1px 3px 0 var(--shadow), 0 1px 2px 0 var(--shadow); }
