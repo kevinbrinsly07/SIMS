@@ -32,7 +32,7 @@ class GradeController extends Controller
         ]);
 
         $grade = Grade::create($request->all());
-        return response()->json($grade->load('student.user', 'course'), 201);
+        return response()->json($grade->load('student.user', 'course', 'assessment'), 201);
     }
 
     /**
@@ -40,7 +40,7 @@ class GradeController extends Controller
      */
     public function show(string $id)
     {
-        $grade = Grade::with('student.user', 'course')->findOrFail($id);
+        $grade = Grade::with('student.user', 'course', 'assessment')->findOrFail($id);
         return response()->json($grade);
     }
 
@@ -59,7 +59,7 @@ class GradeController extends Controller
         ]);
 
         $grade->update($request->only(['assessment_type', 'assessment_name', 'score', 'max_score', 'remarks']));
-        return response()->json($grade->load('student.user', 'course'));
+        return response()->json($grade->load('student.user', 'course', 'assessment'));
     }
 
     /**
