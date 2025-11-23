@@ -18,20 +18,22 @@ const AdminDashboard = ({ onLogout }) => {
     notifications: [],
     behaviorLogs: [],
     healthRecords: [],
-    users: []
+    users: [],
+    studyMaterials: []
   });
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState({ open: false, type: '', mode: 'create', item: null });
   const [search, setSearch] = useState('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const fetchData = async () => {
     try {
       const endpoints = [
         'students', 'courses', 'enrollments', 'attendance', 'applications',
         'assessments', 'grades', 'fees', 'payments', 'schedules', 'notifications',
-        'behavior-logs', 'health-records', 'users'
+        'behavior-logs', 'health-records', 'users', 'study-materials'
       ];
 
       const responses = await Promise.all(
@@ -65,7 +67,7 @@ const AdminDashboard = ({ onLogout }) => {
         const endpoints = [
           'students', 'courses', 'enrollments', 'attendance', 'applications',
           'assessments', 'grades', 'fees', 'payments', 'schedules', 'notifications',
-          'behavior-logs', 'health-records', 'users'
+          'behavior-logs', 'health-records', 'users', 'study-materials'
         ];
 
         const responses = await Promise.all(
@@ -120,14 +122,80 @@ const AdminDashboard = ({ onLogout }) => {
     }
   };
 
-  const handleSave = async (formData) => {
-    if (modal.mode === 'create') {
-      await axios.post(modal.type, formData);
-    } else {
-      await axios.put(`${modal.type}/${modal.item.id}`, formData);
+  const handleView = async (item) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`study-materials/${item.id}/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const { file_name, file_type, content } = response.data;
+      
+      // Create a modal to display the content
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+      modal.innerHTML = `
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white max-h-screen overflow-y-auto">
+          <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-medium text-gray-900">${file_name}</h3>
+              <button id="closeModal" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <div class="mb-4">
+              ${file_type.startsWith('image/') ? 
+                `<img src="data:${file_type};base64,${content}" alt="${file_name}" class="max-w-full h-auto" />` :
+                file_type === 'application/pdf' ?
+                `<embed src="data:${file_type};base64,${content}" type="${file_type}" width="100%" height="600px" />` :
+                `<div class="text-center py-8">
+                  <p class="text-gray-600">Preview not available for this file type.</p>
+                  <p class="text-sm text-gray-500 mt-2">File type: ${file_type}</p>
+                  <button id="downloadBtn" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    Download File
+                  </button>
+                </div>`
+              }
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // Close modal functionality
+      const closeModal = () => {
+        document.body.removeChild(modal);
+      };
+      
+      modal.querySelector('#closeModal').addEventListener('click', closeModal);
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+      });
+      
+      // Download button if present
+      const downloadBtn = modal.querySelector('#downloadBtn');
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', () => {
+          // For admin, we can add a download function here, but since it's not defined, just close
+          closeModal();
+        });
+      }
+      
+    } catch (err) {
+      console.error('Error viewing file:', err);
+      if (err.response?.status === 403) {
+        alert('You do not have permission to view this file.');
+      } else if (err.response?.status === 404) {
+        alert('File not found.');
+      } else {
+        alert('Failed to view file. Please try again.');
+      }
     }
-    setModal({ open: false, type: '', mode: 'create', item: null });
-    fetchData();
   };
 
   const getStudentDepartmentData = () => {
@@ -264,26 +332,7 @@ const AdminDashboard = ({ onLogout }) => {
       {/* Sidebar */}
       <div className="w-64 bg-white shadow-lg">
         <div className="p-6">
-          <div className="flex items-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
-              {user?.profile_picture ? (
-                <img
-                  src={`http://localhost:8000/storage/${user.profile_picture}`}
-                  alt="Profile"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <BsPerson className="text-2xl text-gray-600" />
-              )}
-            </div>
-            <div className="ml-4">
-              <h2 className="text-2xl font-bold text-gray-800">Admin Panel</h2>
-              <p className="text-sm text-gray-600 mt-2">
-                {user?.username}
-              </p>
-              <p className="text-xs text-gray-500">{user?.email}</p>
-            </div>
-          </div>
+          <h2 className="text-2xl font-bold text-gray-800">Admin Panel</h2>
         </div>
         <nav className="mt-6">
           {[
@@ -302,6 +351,7 @@ const AdminDashboard = ({ onLogout }) => {
             { key: 'notifications', label: 'Notifications', icon: <BsBell /> },
             { key: 'behavior', label: 'Behavior Logs', icon: <BsExclamationTriangle /> },
             { key: 'health', label: 'Health Records', icon: <BsHospital /> },
+            { key: 'study-materials', label: 'Study Materials', icon: <BsBook /> },
           ].map(({ key, label, icon }) => (
             <button
               key={key}
@@ -337,13 +387,43 @@ const AdminDashboard = ({ onLogout }) => {
             {activeTab === 'notifications' && 'Notification Management'}
             {activeTab === 'behavior' && 'Behavior Management'}
             {activeTab === 'health' && 'Health Records Management'}
+            {activeTab === 'study-materials' && 'Study Materials Management'}
           </h1>
-          <button
-            onClick={onLogout}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-          >
-            Logout
-          </button>
+          <div className="relative">
+            <div 
+              className="flex items-center space-x-4 cursor-pointer"
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+            >
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900">admin</p>
+                <p className="text-xs text-gray-500">admin@example.com</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
+                {user?.profile_picture ? (
+                  <img
+                    src={`http://localhost:8000/storage/${user.profile_picture}`}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <BsPerson className="text-lg text-gray-600" />
+                )}
+              </div>
+            </div>
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+                <button
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    onLogout();
+                  }}
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
         {/* Content */}
@@ -1058,6 +1138,42 @@ const AdminDashboard = ({ onLogout }) => {
               />
             </div>
           )}
+
+          {activeTab === 'study-materials' && (
+            <div>
+              <div className="mb-4">
+                <button
+                  onClick={() => handleCreate('study-materials')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Upload Study Material
+                </button>
+              </div>
+              <DataTable
+                title="Study Materials"
+                data={data.studymaterials}
+                columns={[
+                  { key: 'title', label: 'Title' },
+                  { key: 'course.course_name', label: 'Course', render: (_, row) => row.course?.course_name },
+                  { key: 'module_name', label: 'Module' },
+                  { key: 'file_name', label: 'File Name' },
+                  { key: 'file_type', label: 'Type' },
+                  { key: 'file_size', label: 'Size (KB)', render: (value) => `${(value / 1024).toFixed(2)} KB` },
+                  { key: 'is_visible', label: 'Visible', render: (value) => (
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {value ? 'Yes' : 'No'}
+                    </span>
+                  )},
+                  { key: 'created_at', label: 'Uploaded', render: (value) => new Date(value).toLocaleDateString() },
+                ]}
+                onView={(item) => handleView(item)}
+                onEdit={(item) => handleEdit('study-materials', item)}
+                onDelete={(id) => handleDelete('study-materials', id)}
+              />
+            </div>
+          )}
         </main>
       </div>
 
@@ -1081,7 +1197,7 @@ const AdminDashboard = ({ onLogout }) => {
 };
 
 // Reusable DataTable component
-const DataTable = ({ title, data, columns, onEdit, onDelete }) => (
+const DataTable = ({ title, data, columns, onEdit, onDelete, onView }) => (
   <div className="bg-white rounded-lg shadow overflow-hidden">
     <div className="px-6 py-4 border-b border-gray-200">
       <h3 className="text-lg font-medium text-gray-900">{title}</h3>
@@ -1095,7 +1211,7 @@ const DataTable = ({ title, data, columns, onEdit, onDelete }) => (
                 {col.label}
               </th>
             ))}
-            {(onEdit || onDelete) && (
+            {(onEdit || onDelete || onView) && (
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
@@ -1110,8 +1226,16 @@ const DataTable = ({ title, data, columns, onEdit, onDelete }) => (
                   {col.render ? col.render(getNestedValue(row, col.key), row) : getNestedValue(row, col.key)}
                 </td>
               ))}
-              {(onEdit || onDelete) && (
+              {(onEdit || onDelete || onView) && (
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  {onView && (
+                    <button
+                      onClick={() => onView(row)}
+                      className="text-blue-600 hover:text-blue-900 mr-4"
+                    >
+                      View
+                    </button>
+                  )}
                   {onEdit && (
                     <button
                       onClick={() => onEdit(row)}
@@ -1368,6 +1492,18 @@ const Modal = ({ type, mode, item, onClose, onSave, courses, students, assessmen
             { value: 1, label: 'Yes' }
           ] },
         ];
+      case 'study-materials':
+        return [
+          { name: 'course_id', label: 'Course', type: 'select', required: true, options: courses.map(c => ({ value: c.id, label: `${c.course_code} - ${c.course_name}` })) },
+          { name: 'module_name', label: 'Module', type: 'text', required: false },
+          { name: 'title', label: 'Title', type: 'text', required: true },
+          { name: 'description', label: 'Description', type: 'textarea', required: false },
+          { name: 'file', label: 'File', type: 'file', required: mode === 'create', accept: '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif' },
+          { name: 'is_visible', label: 'Visible to Students', type: 'select', required: false, options: [
+            { value: 1, label: 'Yes' },
+            { value: 0, label: 'No' }
+          ] },
+        ];
       default:
         return [];
     }
@@ -1399,6 +1535,27 @@ const Modal = ({ type, mode, item, onClose, onSave, courses, students, assessmen
                       </option>
                     ))}
                   </select>
+                ) : field.type === 'file' ? (
+                  <input
+                    type="file"
+                    name={field.name}
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      setFormData(prev => ({ ...prev, [field.name]: file }));
+                    }}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    required={field.required}
+                    accept={field.accept}
+                  />
+                ) : field.type === 'textarea' ? (
+                  <textarea
+                    name={field.name}
+                    value={formData[field.name] || ''}
+                    onChange={handleChange}
+                    rows={3}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    required={field.required}
+                  />
                 ) : (
                   <input
                     type={field.type}

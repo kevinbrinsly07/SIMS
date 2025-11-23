@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-// import request from 'superagent';
 import { BsBarChart, BsPerson, BsBook, BsGraphUp, BsCheckCircle, BsCash, BsBell, BsHospital, BsExclamationTriangle, BsCalendar } from 'react-icons/bs';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -15,7 +14,8 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
     notifications: [],
     healthRecords: [],
     behaviorLogs: [],
-    assessments: []
+    assessments: [],
+    studyMaterials: []
   });
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
@@ -26,6 +26,7 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const [localProfilePicture, setLocalProfilePicture] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,7 +42,8 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
           `students/${studentId}/notifications`,
           `students/${studentId}/health-records`,
           `students/${studentId}/behavior-logs`,
-          'assessments'
+          'assessments',
+          'study-materials'
         ];
 
         const responses = await Promise.all(
@@ -63,7 +65,8 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
           notifications: responses[6].data,
           healthRecords: responses[7].data,
           behaviorLogs: responses[8].data,
-          assessments: studentAssessments
+          assessments: studentAssessments,
+          studyMaterials: responses[10].data
         });
         setLoading(false);
       } catch (err) {
@@ -212,6 +215,82 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
     }
   };
 
+  const handleView = async (item) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`study-materials/${item.id}/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const { file_name, file_type, content } = response.data;
+      
+      // Create a modal to display the content
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+      modal.innerHTML = `
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white max-h-screen overflow-y-auto">
+          <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-medium text-gray-900">${file_name}</h3>
+              <button id="closeModal" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <div class="mb-4">
+              ${file_type.startsWith('image/') ? 
+                `<img src="data:${file_type};base64,${content}" alt="${file_name}" class="max-w-full h-auto" />` :
+                file_type === 'application/pdf' ?
+                `<embed src="data:${file_type};base64,${content}" type="${file_type}" width="100%" height="600px" />` :
+                `<div class="text-center py-8">
+                  <p class="text-gray-600">Preview not available for this file type.</p>
+                  <p class="text-sm text-gray-500 mt-2">File type: ${file_type}</p>
+                  <button id="downloadBtn" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    Download File
+                  </button>
+                </div>`
+              }
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // Close modal functionality
+      const closeModal = () => {
+        document.body.removeChild(modal);
+      };
+      
+      modal.querySelector('#closeModal').addEventListener('click', closeModal);
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+      });
+      
+      // Download button if present
+      const downloadBtn = modal.querySelector('#downloadBtn');
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', () => {
+          handleDownload(item);
+          closeModal();
+        });
+      }
+      
+    } catch (err) {
+      console.error('Error viewing file:', err);
+      if (err.response?.status === 403) {
+        alert('You do not have permission to view this file.');
+      } else if (err.response?.status === 404) {
+        alert('File not found.');
+      } else {
+        alert('Failed to view file. Please try again.');
+      }
+    }
+  };
+
   const pendingFees = data.fees.filter(fee => fee.status === 'pending');
   const totalPendingAmount = pendingFees.reduce((sum, fee) => sum + parseFloat(fee.amount), 0);
 
@@ -228,32 +307,7 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
       {/* Sidebar */}
       <div className="w-64 bg-white shadow-lg">
         <div className="p-6">
-          <div className="flex items-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
-              {localProfilePicture ? (
-                <img
-                  src={localProfilePicture}
-                  alt="Profile"
-                  className="w-full h-full object-cover"
-                />
-              ) : user?.profile_picture ? (
-                <img
-                  src={`http://localhost:8000/storage/${user.profile_picture}`}
-                  alt="Profile"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <BsPerson className="text-2xl text-gray-600" />
-              )}
-            </div>
-            <div className="ml-4">
-              <h2 className="text-2xl font-bold text-gray-800">Student Portal</h2>
-              <p className="text-sm text-gray-600 mt-2">
-                {data.profile?.first_name} {data.profile?.last_name}
-              </p>
-              <p className="text-xs text-gray-500">{data.profile?.student_id}</p>
-            </div>
-          </div>
+          <h2 className="text-xl font-bold text-gray-800">Student Portal</h2>
         </div>
         <nav className="mt-6">
           {[
@@ -267,6 +321,7 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
             { key: 'notifications', label: 'Notifications', icon: <BsBell /> },
             { key: 'health', label: 'Health Records', icon: <BsHospital /> },
             { key: 'behavior', label: 'Behavior Logs', icon: <BsExclamationTriangle /> },
+            { key: 'study-materials', label: 'Study Materials', icon: <BsBook /> },
           ].map(({ key, label, icon }) => (
             <button
               key={key}
@@ -297,13 +352,43 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
             {activeTab === 'notifications' && 'Notifications'}
             {activeTab === 'health' && 'Health Records'}
             {activeTab === 'behavior' && 'Behavior Logs'}
+            {activeTab === 'study-materials' && 'Study Materials'}
           </h1>
-          <button
-            onClick={onLogout}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-          >
-            Logout
-          </button>
+          <div className="relative">
+            <div 
+              className="flex items-center space-x-4 cursor-pointer"
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+            >
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900">{user?.username}</p>
+                <p className="text-xs text-gray-500">{user?.email}</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
+                {user?.profile_picture ? (
+                  <img
+                    src={`http://localhost:8000/storage/${user.profile_picture}`}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <BsPerson className="text-lg text-gray-600" />
+                )}
+              </div>
+            </div>
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+                <button
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    onLogout();
+                  }}
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
         {/* Content */}
@@ -949,6 +1034,96 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
               ]}
             />
           )}
+
+          {activeTab === 'study-materials' && (
+            <div className="space-y-6">
+              <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+                <div className="flex">
+                  <div className="shrink-0">
+                    <BsBook className="h-5 w-5 text-blue-400" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-blue-800">Study Materials</h3>
+                    <div className="mt-2 text-sm text-blue-700">
+                      <p>Access course materials uploaded by your instructors. Materials are organized by course and module. Click "Download" to save files to your device.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Group materials by course and module */}
+              {(() => {
+                // Filter visible materials and group by course, then by module
+                const visibleMaterials = data.studyMaterials.filter(material => material.is_visible);
+                const groupedMaterials = visibleMaterials.reduce((acc, material) => {
+                  const courseName = material.course?.course_name || 'Unknown Course';
+                  const moduleName = material.module_name || 'General';
+
+                  if (!acc[courseName]) {
+                    acc[courseName] = {};
+                  }
+                  if (!acc[courseName][moduleName]) {
+                    acc[courseName][moduleName] = [];
+                  }
+                  acc[courseName][moduleName].push(material);
+                  return acc;
+                }, {});
+
+                return Object.entries(groupedMaterials).map(([courseName, modules]) => (
+                  <div key={courseName} className="bg-white rounded-lg shadow p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">{courseName}</h3>
+                    {Object.entries(modules).map(([moduleName, materials]) => (
+                      <div key={moduleName} className="mb-6 last:mb-0">
+                        <h4 className="text-md font-medium text-gray-700 mb-3 border-b pb-2">
+                          {moduleName === 'General' ? 'General Materials' : `Module: ${moduleName}`}
+                        </h4>
+                        <div className="space-y-3">
+                          {materials.map((material) => (
+                            <div key={material.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                              <div className="flex-1">
+                                <h5 className="text-sm font-medium text-gray-900">{material.title}</h5>
+                                {material.description && (
+                                  <p className="text-sm text-gray-600 mt-1">{material.description}</p>
+                                )}
+                                <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                                  <span>{material.file_name}</span>
+                                  <span>{material.file_type}</span>
+                                  <span>{(material.file_size / 1024).toFixed(2)} KB</span>
+                                  <span>Uploaded: {new Date(material.created_at).toLocaleDateString()}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => handleView(material)}
+                                  className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                                >
+                                  View
+                                </button>
+                                <button
+                                  onClick={() => handleDownload(material)}
+                                  className="px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 transition-colors"
+                                >
+                                  Download
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ));
+              })()}
+
+              {data.studyMaterials.filter(material => material.is_visible).length === 0 && (
+                <div className="bg-white rounded-lg shadow p-6 text-center">
+                  <BsBook className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No study materials available</h3>
+                  <p className="mt-1 text-sm text-gray-500">Study materials will appear here when your instructors upload them.</p>
+                </div>
+              )}
+            </div>
+          )}
         </main>
       </div>
     </div>
@@ -956,7 +1131,7 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
 };
 
 // Reusable DataTable component
-const DataTable = ({ title, data, columns, onMarkAsRead }) => (
+const DataTable = ({ title, data, columns, onMarkAsRead, onDownload }) => (
   <div className="bg-white rounded-lg shadow overflow-hidden">
     <div className="px-6 py-4 border-b border-gray-200">
       <h3 className="text-lg font-medium text-gray-900">{title}</h3>
@@ -970,7 +1145,7 @@ const DataTable = ({ title, data, columns, onMarkAsRead }) => (
                 {col.label}
               </th>
             ))}
-            {onMarkAsRead && (
+            {(onMarkAsRead || onDownload) && (
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
@@ -985,14 +1160,22 @@ const DataTable = ({ title, data, columns, onMarkAsRead }) => (
                   {col.render ? col.render(getNestedValue(row, col.key), row) : getNestedValue(row, col.key)}
                 </td>
               ))}
-              {onMarkAsRead && (
+              {(onMarkAsRead || onDownload) && (
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  {!row.is_read && (
+                  {onMarkAsRead && !row.is_read && (
                     <button
                       onClick={() => onMarkAsRead(row.id)}
-                      className="text-blue-600 hover:text-blue-900"
+                      className="text-blue-600 hover:text-blue-900 mr-4"
                     >
                       Mark as Read
+                    </button>
+                  )}
+                  {onDownload && (
+                    <button
+                      onClick={() => onDownload(row)}
+                      className="text-green-600 hover:text-green-900"
+                    >
+                      Download
                     </button>
                   )}
                 </td>

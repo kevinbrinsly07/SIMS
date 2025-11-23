@@ -18,6 +18,7 @@ use App\Http\Controllers\BehaviorLogsController;
 use App\Http\Controllers\HealthRecordsController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\GuardianController;
+use App\Http\Controllers\StudyMaterialController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
@@ -38,6 +39,10 @@ Route::apiResource('behavior-logs', BehaviorLogsController::class)->middleware('
 Route::apiResource('health-records', HealthRecordsController::class)->middleware('auth:sanctum');
 Route::apiResource('users', UserController::class)->middleware('auth:sanctum');
 Route::post('users/{user}', [UserController::class, 'update'])->middleware('auth:sanctum');
+
+Route::apiResource('study-materials', StudyMaterialController::class)->middleware('auth:sanctum');
+Route::get('study-materials/{studyMaterial}/download', [StudyMaterialController::class, 'download'])->middleware('auth:sanctum');
+Route::get('courses/{course}/study-materials', [StudyMaterialController::class, 'getByCourse'])->middleware('auth:sanctum');
 
 Route::get('students/{student}/courses', [StudentController::class, 'courses'])->middleware('auth:sanctum');
 Route::get('students/{student}/grades', [StudentController::class, 'grades'])->middleware('auth:sanctum');

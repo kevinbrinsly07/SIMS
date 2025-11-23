@@ -41,4 +41,9 @@ class Course extends Model
     {
         return $this->hasMany(Schedule::class);
     }
+
+    public function studyMaterials()
+    {
+        return $this->hasMany(StudyMaterial::class);
+    }
 }

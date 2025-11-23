@@ -20,11 +20,12 @@ const ParentDashboard = ({ user, onLogout }) => {
   });
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const fetchChildren = async () => {
     try {
       // Assuming parent relationship exists in user model
-      const childrenRes = await axios.get(`parent/${user.guardian.id}/children`);
+      const childrenRes = await axios.get(`parent/${user.id}/children`);
       setData(prev => ({
         ...prev,
         children: childrenRes.data,
@@ -122,9 +123,6 @@ const ParentDashboard = ({ user, onLogout }) => {
       <div className="w-64 bg-white shadow-lg">
         <div className="p-6">
           <h2 className="text-2xl font-bold text-gray-800">Parent Portal</h2>
-          <p className="text-sm text-gray-600 mt-2">
-            Welcome, {user.username}
-          </p>
         </div>
 
         {/* Child Selector */}
@@ -168,7 +166,7 @@ const ParentDashboard = ({ user, onLogout }) => {
               }`}
             >
               <span className="mr-3">{icon}</span>
-              {label.split(' ').slice(1).join(' ')}
+              {label}
             </button>
           ))}
         </nav>
@@ -189,12 +187,33 @@ const ParentDashboard = ({ user, onLogout }) => {
             {activeTab === 'health' && 'Health Records'}
             {activeTab === 'behavior' && 'Behavior Logs'}
           </h1>
-          <button
-            onClick={onLogout}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-          >
-            Logout
-          </button>
+          <div className="relative">
+            <div 
+              className="flex items-center space-x-4 cursor-pointer"
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+            >
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900">{user?.username}</p>
+                <p className="text-xs text-gray-500">{user?.email}</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
+                <BsPerson className="text-lg text-gray-600" />
+              </div>
+            </div>
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+                <button
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    onLogout();
+                  }}
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
         {/* Content */}
@@ -244,7 +263,7 @@ const ParentDashboard = ({ user, onLogout }) => {
                         <div className="flex justify-between">
                           <span className="text-sm text-gray-600">Courses Passed</span>
                           <span className="text-sm font-medium">
-                            {data.childData.grades.filter(g => g.grade >= 60).length}/{data.childData.grades.length}
+                            {data.childData.grades.filter(g => g.percentage >= 60).length}/{data.childData.grades.length}
                           </span>
                         </div>
                       </div>
