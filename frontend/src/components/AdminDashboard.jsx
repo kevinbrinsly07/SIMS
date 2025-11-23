@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
-import { BsBarChart, BsPeople, BsBook, BsPencilSquare, BsClipboardData, BsMortarboard, BsCheckCircle, BsCash, BsCreditCard, BsCalendar, BsBell, BsExclamationTriangle, BsHospital, BsXCircle, BsPerson } from 'react-icons/bs';
+import { BsBarChart, BsPeople, BsBook, BsPencilSquare, BsClipboardData, BsMortarboard, BsCheckCircle, BsCash, BsCreditCard, BsCalendar, BsBell, BsExclamationTriangle, BsHospital, BsXCircle, BsPerson, BsGraphUp } from 'react-icons/bs';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
 const AdminDashboard = ({ onLogout }) => {
@@ -27,8 +27,29 @@ const AdminDashboard = ({ onLogout }) => {
   const [modal, setModal] = useState({ open: false, type: '', mode: 'create', item: null });
   const [search, setSearch] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
-  const fetchData = async () => {
+  // Debounced search state
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Memoized filtered data
+  const filteredStudents = useMemo(() => {
+    if (!debouncedSearch) return data.students;
+    return data.students.filter(s =>
+      `${s.first_name} ${s.last_name} ${s.student_id} ${s.email}`.toLowerCase().includes(debouncedSearch.toLowerCase())
+    );
+  }, [data.students, debouncedSearch]);
+
+  const fetchData = useCallback(async () => {
     try {
       const endpoints = [
         'students', 'courses', 'enrollments', 'attendance', 'applications',
@@ -36,61 +57,48 @@ const AdminDashboard = ({ onLogout }) => {
         'behavior-logs', 'health-records', 'users', 'study-materials'
       ];
 
-      const responses = await Promise.all(
-        endpoints.map(endpoint => axios.get(endpoint))
-      );
+      // Fetch data in smaller batches to avoid overwhelming the browser
+      const batchSize = 5;
+      const batches = [];
+      for (let i = 0; i < endpoints.length; i += batchSize) {
+        batches.push(endpoints.slice(i, i + batchSize));
+      }
 
       const newData = {};
-      endpoints.forEach((endpoint, index) => {
-        const key = endpoint.replace('-', '');
-        newData[key] = responses[index].data;
-      });
+      for (const batch of batches) {
+        const batchPromises = batch.map(endpoint => axios.get(endpoint));
+        const batchResponses = await Promise.all(batchPromises);
+
+        batch.forEach((endpoint, index) => {
+          const key = endpoint.replace('-', '');
+          newData[key] = batchResponses[index].data;
+        });
+
+        // Small delay between batches to prevent blocking
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
 
       setData(newData);
-      
+
       // Get current user data
       const userResponse = await axios.get('/user');
       setUser(userResponse.data);
-      
+
       setLoading(false);
     } catch (err) {
       console.error('Error fetching data:', err);
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const loadData = async () => {
       try {
-        const endpoints = [
-          'students', 'courses', 'enrollments', 'attendance', 'applications',
-          'assessments', 'grades', 'fees', 'payments', 'schedules', 'notifications',
-          'behavior-logs', 'health-records', 'users', 'study-materials'
-        ];
-
-        const responses = await Promise.all(
-          endpoints.map(endpoint => axios.get(endpoint))
-        );
-
-        if (isMounted) {
-          const newData = {};
-          endpoints.forEach((endpoint, index) => {
-            const key = endpoint.replace('-', '');
-            newData[key] = responses[index].data;
-          });
-
-          setData(newData);
-          
-          // Get current user data
-          const userResponse = await axios.get('/user');
-          setUser(userResponse.data);
-          
-          setLoading(false);
-        }
+        await fetchData();
       } catch (err) {
-        console.error('Error fetching data:', err);
+        console.error('Error loading data:', err);
         if (isMounted) {
           setLoading(false);
         }
@@ -102,17 +110,17 @@ const AdminDashboard = ({ onLogout }) => {
     return () => {
       isMounted = false;
     };
+  }, [fetchData]);
+
+  const handleCreate = useCallback((type) => {
+    setModal({ open: true, type, mode: 'create', item: null });
   }, []);
 
-  const handleCreate = (type) => {
-    setModal({ open: true, type, mode: 'create', item: null });
-  };
-
-  const handleEdit = (type, item) => {
+  const handleEdit = useCallback((type, item) => {
     setModal({ open: true, type, mode: 'edit', item });
-  };
+  }, []);
 
-  const handleDelete = async (type, id) => {
+  const handleDelete = useCallback(async (type, id) => {
     if (!confirm('Are you sure you want to delete this item?')) return;
     try {
       await axios.delete(`${type}/${id}`);
@@ -120,9 +128,53 @@ const AdminDashboard = ({ onLogout }) => {
     } catch (err) {
       console.error('Error deleting:', err);
     }
-  };
+  }, [fetchData]);
 
-  const handleView = async (item) => {
+  const handleSave = useCallback(async (formData) => {
+    try {
+      const endpoint = modal.type;
+      const isFormData = formData.file instanceof File;
+
+      if (modal.mode === 'create') {
+        if (isFormData) {
+          const data = new FormData();
+          Object.keys(formData).forEach(key => {
+            if (formData[key] !== null && formData[key] !== undefined) {
+              data.append(key, formData[key]);
+            }
+          });
+          await axios.post(endpoint, data, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        } else {
+          await axios.post(endpoint, formData);
+        }
+      } else {
+        if (isFormData) {
+          const data = new FormData();
+          data.append('_method', 'PUT');
+          Object.keys(formData).forEach(key => {
+            if (formData[key] !== null && formData[key] !== undefined) {
+              data.append(key, formData[key]);
+            }
+          });
+          await axios.post(`${endpoint}/${modal.item.id}`, data, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        } else {
+          await axios.put(`${endpoint}/${modal.item.id}`, formData);
+        }
+      }
+
+      setModal({ open: false, type: '', mode: 'create', item: null });
+      fetchData();
+    } catch (err) {
+      console.error('Error saving:', err);
+      throw err;
+    }
+  }, [modal.type, modal.mode, modal.item, fetchData]);
+
+  const handleView = useCallback(async (item) => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(`study-materials/${item.id}/download`, {
@@ -132,15 +184,15 @@ const AdminDashboard = ({ onLogout }) => {
       });
 
       const { file_name, file_type, content } = response.data;
-      
+
       // Create a modal to display the content
       const modal = document.createElement('div');
       modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
       modal.innerHTML = `
-        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white max-h-screen overflow-y-auto">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-cream max-h-screen overflow-y-auto">
           <div class="mt-3">
             <div class="flex justify-between items-center mb-4">
-              <h3 class="text-lg font-medium text-gray-900">${file_name}</h3>
+              <h3 class="text-lg font-medium text-baltic-blue">${file_name}</h3>
               <button id="closeModal" class="text-gray-400 hover:text-gray-600">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -148,7 +200,7 @@ const AdminDashboard = ({ onLogout }) => {
               </button>
             </div>
             <div class="mb-4">
-              ${file_type.startsWith('image/') ? 
+              ${file_type.startsWith('image/') ?
                 `<img src="data:${file_type};base64,${content}" alt="${file_name}" class="max-w-full h-auto" />` :
                 file_type === 'application/pdf' ?
                 `<embed src="data:${file_type};base64,${content}" type="${file_type}" width="100%" height="600px" />` :
@@ -164,19 +216,19 @@ const AdminDashboard = ({ onLogout }) => {
           </div>
         </div>
       `;
-      
+
       document.body.appendChild(modal);
-      
+
       // Close modal functionality
       const closeModal = () => {
         document.body.removeChild(modal);
       };
-      
+
       modal.querySelector('#closeModal').addEventListener('click', closeModal);
       modal.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
       });
-      
+
       // Download button if present
       const downloadBtn = modal.querySelector('#downloadBtn');
       if (downloadBtn) {
@@ -185,7 +237,7 @@ const AdminDashboard = ({ onLogout }) => {
           closeModal();
         });
       }
-      
+
     } catch (err) {
       console.error('Error viewing file:', err);
       if (err.response?.status === 403) {
@@ -196,9 +248,10 @@ const AdminDashboard = ({ onLogout }) => {
         alert('Failed to view file. Please try again.');
       }
     }
-  };
+  }, []);
 
-  const getStudentDepartmentData = () => {
+  const getStudentDepartmentData = useMemo(() => {
+    if (!data.students) return [];
     const departmentCount = data.students.reduce((acc, student) => {
       const dept = student.department || 'Not Assigned';
       acc[dept] = (acc[dept] || 0) + 1;
@@ -208,9 +261,10 @@ const AdminDashboard = ({ onLogout }) => {
       department,
       count
     }));
-  };
+  }, [data.students]);
 
-  const getApplicationStatusData = () => {
+  const getApplicationStatusData = useMemo(() => {
+    if (!data.applications) return [];
     const statusCount = data.applications.reduce((acc, app) => {
       acc[app.status] = (acc[app.status] || 0) + 1;
       return acc;
@@ -218,11 +272,12 @@ const AdminDashboard = ({ onLogout }) => {
     return Object.entries(statusCount).map(([status, count]) => ({
       status,
       count,
-      color: status === 'approved' ? '#10B981' : status === 'rejected' ? '#EF4444' : '#F59E0B'
+      color: status === 'approved' ? '#028090' : status === 'rejected' ? '#f0f3bd' : '#02c39a'
     }));
-  };
+  }, [data.applications]);
 
-  const getGradeDistributionData = () => {
+  const getGradeDistributionData = useMemo(() => {
+    if (!data.grades) return [];
     const gradeRanges = { 'A (90-100)': 0, 'B (80-89)': 0, 'C (70-79)': 0, 'D (60-69)': 0, 'F (0-59)': 0 };
     data.grades.forEach(grade => {
       const percentage = parseFloat(grade.percentage || 0);
@@ -233,9 +288,10 @@ const AdminDashboard = ({ onLogout }) => {
       else gradeRanges['F (0-59)']++;
     });
     return Object.entries(gradeRanges).map(([range, count]) => ({ range, count }));
-  };
+  }, [data.grades]);
 
-  const getFeeStatusData = () => {
+  const getFeeStatusData = useMemo(() => {
+    if (!data.fees) return [];
     const statusCount = data.fees.reduce((acc, fee) => {
       acc[fee.status] = (acc[fee.status] || 0) + 1;
       return acc;
@@ -243,14 +299,15 @@ const AdminDashboard = ({ onLogout }) => {
     return Object.entries(statusCount).map(([status, count]) => ({
       status,
       count,
-      color: status === 'paid' ? '#10B981' : status === 'pending' ? '#EF4444' : '#F59E0B'
+      color: status === 'paid' ? '#028090' : status === 'pending' ? '#f0f3bd' : '#02c39a'
     }));
-  };
+  }, [data.fees]);
 
-  const getAttendanceTrendData = () => {
+  const getAttendanceTrendData = useMemo(() => {
+    if (!data.attendance) return [];
     const last30Days = data.attendance.slice(-30);
     const dailyData = {};
-    
+
     last30Days.forEach(record => {
       const date = new Date(record.date).toLocaleDateString();
       if (!dailyData[date]) {
@@ -269,17 +326,19 @@ const AdminDashboard = ({ onLogout }) => {
       absent: counts.absent,
       total: counts.present + counts.absent
     }));
-  };
+  }, [data.attendance]);
 
-  const getAssessmentTypeData = () => {
+  const getAssessmentTypeData = useMemo(() => {
+    if (!data.assessments) return [];
     const typeCount = data.assessments.reduce((acc, assessment) => {
       acc[assessment.assessment_type] = (acc[assessment.assessment_type] || 0) + 1;
       return acc;
     }, {});
     return Object.entries(typeCount).map(([type, count]) => ({ type, count }));
-  };
+  }, [data.assessments]);
 
-  const getUserRoleData = () => {
+  const getUserRoleData = useMemo(() => {
+    if (!data.users) return [];
     const roleCount = data.users.reduce((acc, user) => {
       acc[user.role] = (acc[user.role] || 0) + 1;
       return acc;
@@ -288,9 +347,10 @@ const AdminDashboard = ({ onLogout }) => {
       role: role.charAt(0).toUpperCase() + role.slice(1),
       count
     }));
-  };
+  }, [data.users]);
 
-  const getBehaviorTypeData = () => {
+  const getBehaviorTypeData = useMemo(() => {
+    if (!data.behaviorlogs) return [];
     const typeCount = data.behaviorlogs.reduce((acc, log) => {
       acc[log.incident_type] = (acc[log.incident_type] || 0) + 1;
       return acc;
@@ -299,9 +359,10 @@ const AdminDashboard = ({ onLogout }) => {
       type: type.charAt(0).toUpperCase() + type.slice(1),
       count
     }));
-  };
+  }, [data.behaviorlogs]);
 
-  const getHealthRecordTypeData = () => {
+  const getHealthRecordTypeData = useMemo(() => {
+    if (!data.healthrecords) return [];
     const typeCount = data.healthrecords.reduce((acc, record) => {
       acc[record.record_type] = (acc[record.record_type] || 0) + 1;
       return acc;
@@ -310,14 +371,14 @@ const AdminDashboard = ({ onLogout }) => {
       type: type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' '),
       count
     }));
-  };
+  }, [data.healthrecords]);
 
-  const stats = [
-    { title: 'Total Students', value: data.students.length, icon: <BsPeople />, color: 'bg-blue-500' },
-    { title: 'Total Courses', value: data.courses.length, icon: <BsBook />, color: 'bg-green-500' },
-    { title: 'Applications', value: data.applications.length, icon: <BsPencilSquare />, color: 'bg-yellow-500' },
-    { title: 'Pending Fees', value: data.fees.filter(f => f.status === 'pending').length, icon: <BsCash />, color: 'bg-red-500' },
-  ];
+  const stats = useMemo(() => [
+    { title: 'Total Students', value: data.students?.length || 0, icon: <BsPeople />, color: 'bg-blue-500' },
+    { title: 'Total Courses', value: data.courses?.length || 0, icon: <BsBook />, color: 'bg-green-500' },
+    { title: 'Applications', value: data.applications?.length || 0, icon: <BsPencilSquare />, color: 'bg-purple-500' },
+    { title: 'Pending Fees', value: data.fees?.filter(f => f.status === 'pending').length || 0, icon: <BsCash />, color: 'bg-red-500' },
+  ], [data.students?.length, data.courses?.length, data.applications?.length, data.fees]);
 
   if (loading) {
     return (
@@ -328,11 +389,15 @@ const AdminDashboard = ({ onLogout }) => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg">
-        <div className="p-6">
-          <h2 className="text-2xl font-bold text-gray-800">Admin Panel</h2>
+      <div 
+        className={`bg-white shadow-lg transition-all duration-300 border-r border-gray-200 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}
+        onMouseEnter={() => setSidebarCollapsed(false)}
+        onMouseLeave={() => setSidebarCollapsed(true)}
+      >
+        <div className="px-6 h-16 flex flex-col justify-center items-center border-b border-gray-200">
+          {!sidebarCollapsed && <h2 className="text-2xl font-bold text-gray-800">Admin Panel</h2>}
         </div>
         <nav className="mt-6">
           {[
@@ -356,12 +421,12 @@ const AdminDashboard = ({ onLogout }) => {
             <button
               key={key}
               onClick={() => { setActiveTab(key); setSearch(''); }}
-              className={`w-full text-left px-6 py-3 text-gray-700 hover:bg-gray-100 hover:text-gray-900 flex items-center ${
-                activeTab === key ? 'bg-gray-200 text-gray-900 border-r-4 border-indigo-600' : ''
-              }`}
+              className={`w-full text-left px-6 py-4 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center transition-all duration-200 ${
+                activeTab === key ? 'bg-blue-50 text-blue-600 border-r-4 border-blue-600 shadow-sm' : ''
+              } ${sidebarCollapsed ? 'justify-center px-3' : ''}`}
             >
-              <span className="mr-3">{icon}</span>
-              {label}
+              <span className="mr-3 text-lg">{icon}</span>
+              {!sidebarCollapsed && <span className="font-medium">{label}</span>}
             </button>
           ))}
         </nav>
@@ -370,8 +435,8 @@ const AdminDashboard = ({ onLogout }) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-semibold text-gray-900">
+        <header className="bg-white shadow-sm px-6 py-4 flex justify-between items-center border-b border-gray-200">
+          <h1 className="text-3xl font-bold text-gray-800">
             {activeTab === 'overview' && 'Dashboard Overview'}
             {activeTab === 'profile' && 'My Profile'}
             {activeTab === 'students' && 'Student Management'}
@@ -391,14 +456,14 @@ const AdminDashboard = ({ onLogout }) => {
           </h1>
           <div className="relative">
             <div 
-              className="flex items-center space-x-4 cursor-pointer"
+              className="flex items-center space-x-4 cursor-pointer p-2 rounded-lg hover:bg-gray-100 transition-colors"
               onClick={() => setDropdownOpen(!dropdownOpen)}
             >
               <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">admin</p>
+                <p className="text-sm font-semibold text-gray-800">admin</p>
                 <p className="text-xs text-gray-500">admin@example.com</p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
+              <div className="w-12 h-12 rounded-full bg-linear-to-r from-blue-500 to-blue-600 flex items-center justify-center overflow-hidden shadow-md">
                 {user?.profile_picture ? (
                   <img
                     src={`http://localhost:8000/storage/${user.profile_picture}`}
@@ -406,18 +471,18 @@ const AdminDashboard = ({ onLogout }) => {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <BsPerson className="text-lg text-gray-600" />
+                  <BsPerson className="text-xl text-white" />
                 )}
               </div>
             </div>
             {dropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl z-10 border border-gray-200 overflow-hidden">
                 <button
                   onClick={() => {
                     setDropdownOpen(false);
                     onLogout();
                   }}
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                  className="block w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors text-left"
                 >
                   Logout
                 </button>
@@ -427,20 +492,20 @@ const AdminDashboard = ({ onLogout }) => {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6">
           {activeTab === 'overview' && (
             <div className="space-y-8">
               {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {stats.map((stat, index) => (
-                  <div key={index} className="bg-white rounded-lg shadow p-6">
+                  <div key={index} className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 border border-gray-100">
                     <div className="flex items-center">
-                      <div className={`p-3 rounded-full ${stat.color} text-white text-2xl`}>
+                      <div className={`p-4 rounded-xl ${stat.color} text-white text-3xl shadow-sm`}>
                         {stat.icon}
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                        <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
+                        <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{stat.title}</p>
+                        <p className="text-3xl font-bold text-gray-800">{stat.value}</p>
                       </div>
                     </div>
                   </div>
@@ -448,154 +513,154 @@ const AdminDashboard = ({ onLogout }) => {
               </div>
 
               {/* System Features Overview */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-6">System Features Overview</h3>
+              <div className="bg-white rounded-xl shadow-sm p-8 border border-gray-100">
+                <h3 className="text-2xl font-bold text-gray-800 mb-8 text-center">System Features Overview</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-3">
-                      <BsPeople className="text-blue-500 text-xl mr-3" />
-                      <h4 className="text-lg font-medium text-gray-900">Student Management</h4>
+                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-blue-300 bg-white">
+                    <div className="flex items-center mb-4">
+                      <BsPeople className="text-blue-500 text-2xl mr-4" />
+                      <h4 className="text-xl font-semibold text-gray-800">Student Management</h4>
                     </div>
-                    <p className="text-sm text-gray-600">Manage student profiles, enrollment, and personal information. Track student progress and maintain comprehensive student records.</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">Manage student profiles, enrollment, and personal information. Track student progress and maintain comprehensive student records.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-3">
-                      <BsBook className="text-green-500 text-xl mr-3" />
-                      <h4 className="text-lg font-medium text-gray-900">Course Management</h4>
+                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-green-300 bg-white">
+                    <div className="flex items-center mb-4">
+                      <BsBook className="text-green-500 text-2xl mr-4" />
+                      <h4 className="text-xl font-semibold text-gray-800">Course Management</h4>
                     </div>
-                    <p className="text-sm text-gray-600">Create and manage courses, assign instructors, set credits, and organize course offerings by department and academic year.</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">Create and manage courses, assign instructors, set credits, and organize course offerings by department and academic year.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-3">
-                      <BsPencilSquare className="text-yellow-500 text-xl mr-3" />
-                      <h4 className="text-lg font-medium text-gray-900">Admissions</h4>
+                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-purple-300 bg-white">
+                    <div className="flex items-center mb-4">
+                      <BsPencilSquare className="text-purple-500 text-2xl mr-4" />
+                      <h4 className="text-xl font-semibold text-gray-800">Admissions</h4>
                     </div>
-                    <p className="text-sm text-gray-600">Handle student applications, review submissions, and manage the admission process from application to enrollment.</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">Handle student applications, review submissions, and manage the admission process from application to enrollment.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-3">
-                      <BsClipboardData className="text-purple-500 text-xl mr-3" />
-                      <h4 className="text-lg font-medium text-gray-900">Assessments</h4>
+                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-indigo-300 bg-white">
+                    <div className="flex items-center mb-4">
+                      <BsClipboardData className="text-indigo-500 text-2xl mr-4" />
+                      <h4 className="text-xl font-semibold text-gray-800">Assessments</h4>
                     </div>
-                    <p className="text-sm text-gray-600">Create and manage assessments, quizzes, and exams. Set due dates, weightage, and track assessment schedules.</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">Create and manage assessments, quizzes, and exams. Set due dates, weightage, and track assessment schedules.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-3">
-                      <BsPencilSquare className="text-indigo-500 text-xl mr-3" />
-                      <h4 className="text-lg font-medium text-gray-900">Grade Management</h4>
+                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-blue-300 bg-white">
+                    <div className="flex items-center mb-4">
+                      <BsPencilSquare className="text-blue-600 text-2xl mr-4" />
+                      <h4 className="text-xl font-semibold text-gray-800">Grade Management</h4>
                     </div>
-                    <p className="text-sm text-gray-600">Record and manage student grades, calculate GPA, and maintain detailed academic performance records.</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">Record and manage student grades, calculate GPA, and maintain detailed academic performance records.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-3">
-                      <BsMortarboard className="text-teal-500 text-xl mr-3" />
-                      <h4 className="text-lg font-medium text-gray-900">Enrollments</h4>
+                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-cyan-300 bg-white">
+                    <div className="flex items-center mb-4">
+                      <BsMortarboard className="text-cyan-500 text-2xl mr-4" />
+                      <h4 className="text-xl font-semibold text-gray-800">Enrollments</h4>
                     </div>
-                    <p className="text-sm text-gray-600">Manage course enrollments, track student registrations, and handle enrollment changes and withdrawals.</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">Manage course enrollments, track student registrations, and handle enrollment changes and withdrawals.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-3">
-                      <BsCheckCircle className="text-cyan-500 text-xl mr-3" />
-                      <h4 className="text-lg font-medium text-gray-900">Attendance Tracking</h4>
+                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-emerald-300 bg-white">
+                    <div className="flex items-center mb-4">
+                      <BsCheckCircle className="text-emerald-500 text-2xl mr-4" />
+                      <h4 className="text-xl font-semibold text-gray-800">Attendance Tracking</h4>
                     </div>
-                    <p className="text-sm text-gray-600">Monitor student attendance, record daily presence, and generate attendance reports for academic tracking.</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">Monitor student attendance, record daily presence, and generate attendance reports for academic tracking.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-3">
-                      <BsCash className="text-red-500 text-xl mr-3" />
-                      <h4 className="text-lg font-medium text-gray-900">Fee Management</h4>
+                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-red-300 bg-white">
+                    <div className="flex items-center mb-4">
+                      <BsCash className="text-red-500 text-2xl mr-4" />
+                      <h4 className="text-xl font-semibold text-gray-800">Fee Management</h4>
                     </div>
-                    <p className="text-sm text-gray-600">Set up fee structures, track outstanding payments, and manage tuition and other educational fees.</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">Set up fee structures, track outstanding payments, and manage tuition and other educational fees.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-3">
-                      <BsCreditCard className="text-orange-500 text-xl mr-3" />
-                      <h4 className="text-lg font-medium text-gray-900">Payment Processing</h4>
+                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-orange-300 bg-white">
+                    <div className="flex items-center mb-4">
+                      <BsCreditCard className="text-orange-500 text-2xl mr-4" />
+                      <h4 className="text-xl font-semibold text-gray-800">Payment Processing</h4>
                     </div>
-                    <p className="text-sm text-gray-600">Process payments, track payment history, and manage financial transactions for fees and services.</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">Process payments, track payment history, and manage financial transactions for fees and services.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-3">
-                      <BsCalendar className="text-pink-500 text-xl mr-3" />
-                      <h4 className="text-lg font-medium text-gray-900">Schedule Management</h4>
+                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-pink-300 bg-white">
+                    <div className="flex items-center mb-4">
+                      <BsCalendar className="text-pink-500 text-2xl mr-4" />
+                      <h4 className="text-xl font-semibold text-gray-800">Schedule Management</h4>
                     </div>
-                    <p className="text-sm text-gray-600">Create class schedules, manage timetables, and organize academic calendars and course timings.</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">Create class schedules, manage timetables, and organize academic calendars and course timings.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-3">
-                      <BsBell className="text-gray-500 text-xl mr-3" />
-                      <h4 className="text-lg font-medium text-gray-900">Notifications</h4>
+                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-gray-300 bg-white">
+                    <div className="flex items-center mb-4">
+                      <BsBell className="text-gray-500 text-2xl mr-4" />
+                      <h4 className="text-xl font-semibold text-gray-800">Notifications</h4>
                     </div>
-                    <p className="text-sm text-gray-600">Send announcements, alerts, and important messages to students, staff, and parents.</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">Send announcements, alerts, and important messages to students, staff, and parents.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-3">
-                      <BsExclamationTriangle className="text-amber-500 text-xl mr-3" />
-                      <h4 className="text-lg font-medium text-gray-900">Behavior Management</h4>
+                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-amber-300 bg-white">
+                    <div className="flex items-center mb-4">
+                      <BsExclamationTriangle className="text-amber-500 text-2xl mr-4" />
+                      <h4 className="text-xl font-semibold text-gray-800">Behavior Management</h4>
                     </div>
-                    <p className="text-sm text-gray-600">Track student behavior incidents, maintain disciplinary records, and manage behavioral interventions.</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">Track student behavior incidents, maintain disciplinary records, and manage behavioral interventions.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-3">
-                      <BsHospital className="text-emerald-500 text-xl mr-3" />
-                      <h4 className="text-lg font-medium text-gray-900">Health Records</h4>
+                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-teal-300 bg-white">
+                    <div className="flex items-center mb-4">
+                      <BsHospital className="text-teal-500 text-2xl mr-4" />
+                      <h4 className="text-xl font-semibold text-gray-800">Health Records</h4>
                     </div>
-                    <p className="text-sm text-gray-600">Maintain student health information, track medical records, and manage health-related documentation.</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">Maintain student health information, track medical records, and manage health-related documentation.</p>
                   </div>
 
-                  <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-3">
-                      <BsPerson className="text-violet-500 text-xl mr-3" />
-                      <h4 className="text-lg font-medium text-gray-900">User Management</h4>
+                  <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-300 hover:border-violet-300 bg-white">
+                    <div className="flex items-center mb-4">
+                      <BsPerson className="text-violet-500 text-2xl mr-4" />
+                      <h4 className="text-xl font-semibold text-gray-800">User Management</h4>
                     </div>
-                    <p className="text-sm text-gray-600">Manage system users, roles, and permissions. Handle authentication and access control for the platform.</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">Manage system users, roles, and permissions. Handle authentication and access control for the platform.</p>
                   </div>
                 </div>
               </div>
 
               {/* Quick Actions */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white rounded-xl shadow-sm p-8 border border-gray-100">
+                <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Quick Actions</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   <button
                     onClick={() => handleCreate('students')}
-                    className="flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="flex items-center justify-center px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 shadow-sm hover:shadow-md font-semibold"
                   >
-                    <BsPeople className="mr-2" />
-                    Add Student
+                    <BsPeople className="mr-3 text-xl" />
+                    <span>Add Student</span>
                   </button>
                   <button
                     onClick={() => handleCreate('courses')}
-                    className="flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    className="flex items-center justify-center px-6 py-4 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-all duration-300 transform hover:scale-105 shadow-sm hover:shadow-md font-semibold"
                   >
-                    <BsBook className="mr-2" />
-                    Add Course
+                    <BsBook className="mr-3 text-xl" />
+                    <span>Add Course</span>
                   </button>
                   <button
                     onClick={() => handleCreate('assessments')}
-                    className="flex items-center justify-center px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    className="flex items-center justify-center px-6 py-4 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all duration-300 transform hover:scale-105 shadow-sm hover:shadow-md font-semibold"
                   >
-                    <BsClipboardData className="mr-2" />
-                    Create Assessment
+                    <BsClipboardData className="mr-3 text-xl" />
+                    <span>Create Assessment</span>
                   </button>
                   <button
                     onClick={() => handleCreate('notifications')}
-                    className="flex items-center justify-center px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                    className="flex items-center justify-center px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 shadow-sm hover:shadow-md font-semibold"
                   >
-                    <BsBell className="mr-2" />
-                    Send Notification
+                    <BsBell className="mr-3 text-xl" />
+                    <span>Send Notification</span>
                   </button>
                 </div>
               </div>
@@ -603,26 +668,39 @@ const AdminDashboard = ({ onLogout }) => {
               {/* Data Visualization Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Student Department Distribution */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Students by Department</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <BsBarChart className="mr-3 text-blue-500" />
+                    Students by Department
+                  </h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={getStudentDepartmentData()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="department" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="count" fill="#3B82F6" />
+                    <BarChart data={getStudentDepartmentData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="department" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#fff', 
+                          border: '1px solid #e5e7eb', 
+                          borderRadius: '8px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
+                      <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
 
                 {/* Application Status Distribution */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Application Status</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <BsPencilSquare className="mr-3 text-green-500" />
+                    Application Status
+                  </h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
-                        data={getApplicationStatusData()}
+                        data={getApplicationStatusData}
                         cx="50%"
                         cy="50%"
                         innerRadius={60}
@@ -630,37 +708,57 @@ const AdminDashboard = ({ onLogout }) => {
                         paddingAngle={5}
                         dataKey="count"
                       >
-                        {getApplicationStatusData().map((entry, index) => (
+                        {getApplicationStatusData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#fff', 
+                          border: '1px solid #e5e7eb', 
+                          borderRadius: '8px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
 
                 {/* Grade Distribution */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Grade Distribution</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <BsGraphUp className="mr-3 text-purple-500" />
+                    Grade Distribution
+                  </h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={getGradeDistributionData()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="range" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="count" fill="#8B5CF6" />
+                    <BarChart data={getGradeDistributionData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="range" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#fff', 
+                          border: '1px solid #e5e7eb', 
+                          borderRadius: '8px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
+                      <Bar dataKey="count" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
 
                 {/* Fee Payment Status */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Fee Payment Status</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <BsCash className="mr-3 text-red-500" />
+                    Fee Payment Status
+                  </h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
-                        data={getFeeStatusData()}
+                        data={getFeeStatusData}
                         cx="50%"
                         cy="50%"
                         innerRadius={60}
@@ -668,91 +766,148 @@ const AdminDashboard = ({ onLogout }) => {
                         paddingAngle={5}
                         dataKey="count"
                       >
-                        {getFeeStatusData().map((entry, index) => (
+                        {getFeeStatusData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#fff', 
+                          border: '1px solid #e5e7eb', 
+                          borderRadius: '8px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
 
                 {/* Attendance Trend */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Attendance Trend (Last 30 Days)</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <BsCheckCircle className="mr-3 text-cyan-500" />
+                    Attendance Trend (Last 30 Days)
+                  </h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={getAttendanceTrendData()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Area type="monotone" dataKey="present" stackId="1" stroke="#10B981" fill="#10B981" />
-                      <Area type="monotone" dataKey="absent" stackId="1" stroke="#EF4444" fill="#EF4444" />
+                    <AreaChart data={getAttendanceTrendData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#fff', 
+                          border: '1px solid #e5e7eb', 
+                          borderRadius: '8px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
+                      <Area type="monotone" dataKey="present" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.8} />
+                      <Area type="monotone" dataKey="absent" stackId="1" stroke="#EF4444" fill="#EF4444" fillOpacity={0.8} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
 
                 {/* Assessment Types */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Assessment Types</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <BsClipboardData className="mr-3 text-indigo-500" />
+                    Assessment Types
+                  </h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={getAssessmentTypeData()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="type" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="count" fill="#F59E0B" />
+                    <BarChart data={getAssessmentTypeData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="type" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#fff', 
+                          border: '1px solid #e5e7eb', 
+                          borderRadius: '8px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
+                      <Bar dataKey="count" fill="#6366F1" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
 
                 {/* User Roles Distribution */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">User Roles</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <BsPerson className="mr-3 text-blue-600" />
+                    User Roles
+                  </h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
-                        data={getUserRoleData()}
+                        data={getUserRoleData}
                         cx="50%"
                         cy="50%"
                         outerRadius={100}
                         dataKey="count"
                       >
-                        {getUserRoleData().map((entry, index) => (
+                        {getUserRoleData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={['#3B82F6', '#10B981', '#8B5CF6'][index % 3]} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#fff', 
+                          border: '1px solid #e5e7eb', 
+                          borderRadius: '8px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
 
                 {/* Behavior Incidents */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Behavior Incidents by Type</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <BsExclamationTriangle className="mr-3 text-red-500" />
+                    Behavior Incidents by Type
+                  </h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={getBehaviorTypeData()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="type" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="count" fill="#EF4444" />
+                    <BarChart data={getBehaviorTypeData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="type" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#fff', 
+                          border: '1px solid #e5e7eb', 
+                          borderRadius: '8px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
+                      <Bar dataKey="count" fill="#EF4444" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
 
                 {/* Health Records */}
-                <div className="bg-white rounded-lg shadow p-6 col-span-1 lg:col-span-2">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Health Records by Type</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow duration-300 col-span-1 lg:col-span-2">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <BsHospital className="mr-3 text-emerald-500" />
+                    Health Records by Type
+                  </h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={getHealthRecordTypeData()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="type" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="count" fill="#10B981" />
+                    <BarChart data={getHealthRecordTypeData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="type" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#fff', 
+                          border: '1px solid #e5e7eb', 
+                          borderRadius: '8px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
+                      <Bar dataKey="count" fill="#10B981" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -772,7 +927,7 @@ const AdminDashboard = ({ onLogout }) => {
                   placeholder="Search students..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button
                   onClick={() => handleCreate('students')}
@@ -783,7 +938,7 @@ const AdminDashboard = ({ onLogout }) => {
               </div>
               <DataTable
                 title="Students"
-                data={data.students.filter(s => `${s.first_name} ${s.last_name} ${s.student_id} ${s.email}`.toLowerCase().includes(search.toLowerCase()))}
+                data={filteredStudents}
                 columns={[
                   { key: 'student_id', label: 'ID' },
                   { key: 'first_name', label: 'First Name' },
@@ -1198,57 +1353,60 @@ const AdminDashboard = ({ onLogout }) => {
 
 // Reusable DataTable component
 const DataTable = ({ title, data, columns, onEdit, onDelete, onView }) => (
-  <div className="bg-white rounded-lg shadow overflow-hidden">
-    <div className="px-6 py-4 border-b border-gray-200">
-      <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+  <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-shadow duration-300">
+    <div className="px-8 py-6 border-b border-gray-200 bg-gray-50">
+      <h3 className="text-xl font-bold text-gray-800">{title}</h3>
     </div>
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
             {columns.map((col, index) => (
-              <th key={index} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th key={index} className="px-8 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                 {col.label}
               </th>
             ))}
             {(onEdit || onDelete || onView) && (
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-8 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                 Actions
               </th>
             )}
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className="bg-white divide-y divide-gray-100">
           {data.map((row, index) => (
-            <tr key={index} className="hover:bg-gray-50">
+            <tr key={index} className="hover:bg-gray-50 transition-colors duration-200">
               {columns.map((col, colIndex) => (
-                <td key={colIndex} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td key={colIndex} className="px-8 py-4 whitespace-nowrap text-sm text-gray-800">
                   {col.render ? col.render(getNestedValue(row, col.key), row) : getNestedValue(row, col.key)}
                 </td>
               ))}
               {(onEdit || onDelete || onView) && (
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <td className="px-8 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                   {onView && (
                     <button
                       onClick={() => onView(row)}
-                      className="text-blue-600 hover:text-blue-900 mr-4"
+                      className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 shadow-sm"
                     >
+                      <BsBarChart className="mr-1" />
                       View
                     </button>
                   )}
                   {onEdit && (
                     <button
                       onClick={() => onEdit(row)}
-                      className="text-indigo-600 hover:text-indigo-900 mr-4"
+                      className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 shadow-sm"
                     >
+                      <BsPencilSquare className="mr-1" />
                       Edit
                     </button>
                   )}
                   {onDelete && (
                     <button
                       onClick={() => onDelete(row.id)}
-                      className="text-red-600 hover:text-red-900"
+                      className="inline-flex items-center px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors duration-200 shadow-sm"
                     >
+                      <BsXCircle className="mr-1" />
                       Delete
                     </button>
                   )}
@@ -1513,7 +1671,7 @@ const Modal = ({ type, mode, item, onClose, onSave, courses, students, assessmen
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" onClick={onClose}>
       <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white" onClick={(e) => e.stopPropagation()}>
         <div className="mt-3">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">
+          <h3 className="text-lg font-medium text-gray-800 mb-4">
             {mode === 'create' ? 'Add New' : 'Edit'} {type.slice(0, -1)}
           </h3>
           <form onSubmit={handleSubmit}>
@@ -1525,7 +1683,7 @@ const Modal = ({ type, mode, item, onClose, onSave, courses, students, assessmen
                     name={field.name}
                     value={formData[field.name] || ''}
                     onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     required={field.required}
                   >
                     <option value="">Select {field.label}</option>
@@ -1543,7 +1701,7 @@ const Modal = ({ type, mode, item, onClose, onSave, courses, students, assessmen
                       const file = e.target.files[0];
                       setFormData(prev => ({ ...prev, [field.name]: file }));
                     }}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     required={field.required}
                     accept={field.accept}
                   />
@@ -1553,7 +1711,7 @@ const Modal = ({ type, mode, item, onClose, onSave, courses, students, assessmen
                     value={formData[field.name] || ''}
                     onChange={handleChange}
                     rows={3}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     required={field.required}
                   />
                 ) : (
@@ -1562,7 +1720,7 @@ const Modal = ({ type, mode, item, onClose, onSave, courses, students, assessmen
                     name={field.name}
                     value={formData[field.name] || ''}
                     onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     required={field.required}
                     readOnly={field.readonly}
                   />
@@ -1660,7 +1818,7 @@ const AdminProfile = ({ user, onUserUpdate }) => {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex justify-between items-center mb-6">
-        <h3 className="text-lg font-medium text-gray-900">Admin Profile</h3>
+        <h3 className="text-lg font-medium text-gray-800">Admin Profile</h3>
         {!editMode ? (
           <button
             onClick={handleEditProfile}
@@ -1725,7 +1883,7 @@ const AdminProfile = ({ user, onUserUpdate }) => {
                   setLocalProfilePicture(null);
                 }
               }}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
             />
             <p className="mt-1 text-xs text-gray-500">PNG, JPG, GIF up to 2MB</p>
           </div>
@@ -1741,10 +1899,10 @@ const AdminProfile = ({ user, onUserUpdate }) => {
               name="username"
               value={editedUser.username || ''}
               onChange={handleUserChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
           ) : (
-            <p className="mt-1 text-sm text-gray-900">{user?.username}</p>
+            <p className="mt-1 text-sm text-gray-800">{user?.username}</p>
           )}
         </div>
         <div>
@@ -1755,19 +1913,19 @@ const AdminProfile = ({ user, onUserUpdate }) => {
               name="email"
               value={editedUser.email || ''}
               onChange={handleUserChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
           ) : (
-            <p className="mt-1 text-sm text-gray-900">{user?.email}</p>
+            <p className="mt-1 text-sm text-gray-800">{user?.email}</p>
           )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Role</label>
-          <p className="mt-1 text-sm text-gray-900">{user?.role}</p>
+          <p className="mt-1 text-sm text-gray-800">{user?.role}</p>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Account Created</label>
-          <p className="mt-1 text-sm text-gray-900">{user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</p>
+          <p className="mt-1 text-sm text-gray-800">{user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</p>
         </div>
       </div>
     </div>

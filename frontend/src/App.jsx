@@ -72,14 +72,14 @@ function App() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#003566]"></div>
       </div>
     );
   }
 
   return (
     <Router>
-      <div className="App min-h-screen bg-gray-50">
+      <div className="App min-h-screen bg-[#000814]">
         <Routes>
           <Route path="/login" element={user ? <Navigate to={getDashboardRoute(user.role)} /> : <Login onLogin={handleLogin} />} />
           <Route path="/admin" element={user && user.role === 'admin' ? <AdminDashboard onLogout={handleLogout} /> : <Navigate to="/login" />} />

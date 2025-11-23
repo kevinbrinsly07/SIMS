@@ -27,6 +27,7 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
   const [localProfilePicture, setLocalProfilePicture] = useState(null);
   const [saving, setSaving] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -119,8 +120,8 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
     const paidFees = data.fees.filter(fee => fee.status === 'paid').length;
     const pendingFees = data.fees.filter(fee => fee.status === 'pending').length;
     return [
-      { name: 'Paid', value: paidFees, color: '#10B981' },
-      { name: 'Pending', value: pendingFees, color: '#EF4444' }
+      { name: 'Paid', value: paidFees, color: '#059669' },
+      { name: 'Pending', value: pendingFees, color: '#ea580c' }
     ];
   };
 
@@ -215,6 +216,48 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
     }
   };
 
+  const handleDownload = async (item) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`study-materials/${item.id}/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const { file_name, file_type, content } = response.data;
+      
+      // Convert base64 to blob
+      const byteCharacters = atob(content);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: file_type });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+    } catch (err) {
+      console.error('Error downloading file:', err);
+      if (err.response?.status === 403) {
+        alert('You do not have permission to download this file.');
+      } else if (err.response?.status === 404) {
+        alert('File not found.');
+      } else {
+        alert('Failed to download file. Please try again.');
+      }
+    }
+  };
+
   const handleView = async (item) => {
     try {
       const token = localStorage.getItem('token');
@@ -297,17 +340,21 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg">
-        <div className="p-6">
-          <h2 className="text-xl font-bold text-gray-800">Student Portal</h2>
+      <div 
+        className={`bg-white shadow-lg transition-all duration-300 border-r border-gray-200 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}
+        onMouseEnter={() => setSidebarCollapsed(false)}
+        onMouseLeave={() => setSidebarCollapsed(true)}
+      >
+        <div className="px-6 h-[73px] flex flex-col justify-center items-center border-b border-gray-200">
+          {!sidebarCollapsed && <h2 className="text-2xl font-bold text-gray-800">Student Portal</h2>}
         </div>
         <nav className="mt-6">
           {[
@@ -326,12 +373,12 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`w-full text-left px-6 py-3 text-gray-700 hover:bg-gray-100 hover:text-gray-900 flex items-center ${
-                activeTab === key ? 'bg-gray-200 text-gray-900 border-r-4 border-indigo-600' : ''
-              }`}
+              className={`w-full text-left px-6 py-4 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center transition-all duration-200 ${
+                activeTab === key ? 'bg-blue-50 text-blue-600 border-r-4 border-blue-600' : ''
+              } ${sidebarCollapsed ? 'justify-center px-3' : ''}`}
             >
-              <span className="mr-3">{icon}</span>
-              {label}
+              <span className="mr-3 text-lg">{icon}</span>
+              {!sidebarCollapsed && <span className="font-medium">{label}</span>}
             </button>
           ))}
         </nav>
@@ -340,8 +387,8 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-semibold text-gray-900">
+        <header className="bg-white shadow-sm px-6 py-4 flex justify-between items-center border-b border-gray-200">
+          <h1 className="text-3xl font-bold text-gray-800">
             {activeTab === 'overview' && 'Dashboard Overview'}
             {activeTab === 'profile' && 'My Profile'}
             {activeTab === 'courses' && 'My Courses'}
@@ -356,14 +403,14 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
           </h1>
           <div className="relative">
             <div 
-              className="flex items-center space-x-4 cursor-pointer"
+              className="flex items-center space-x-4 cursor-pointer p-2 rounded-lg hover:bg-gray-100 transition-colors"
               onClick={() => setDropdownOpen(!dropdownOpen)}
             >
               <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{user?.username}</p>
-                <p className="text-xs text-gray-500">{user?.email}</p>
+                <p className="text-sm font-semibold text-gray-800">{user?.username}</p>
+                <p className="text-xs text-gray-600">{user?.email}</p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
+              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden shadow-sm">
                 {user?.profile_picture ? (
                   <img
                     src={`http://localhost:8000/storage/${user.profile_picture}`}
@@ -371,18 +418,18 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <BsPerson className="text-lg text-gray-600" />
+                  <BsPerson className="text-xl text-blue-600" />
                 )}
               </div>
             </div>
             {dropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-10 overflow-hidden border border-gray-200">
                 <button
                   onClick={() => {
                     setDropdownOpen(false);
                     onLogout();
                   }}
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                  className="block w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors text-left"
                 >
                   Logout
                 </button>
@@ -392,45 +439,53 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6">
           {activeTab === 'overview' && (
             <div className="space-y-6">
               {/* Quick Stats */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white rounded-lg shadow p-6">
+                <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 border border-gray-200">
                   <div className="flex items-center">
-                    <div className="p-3 rounded-full bg-blue-500 text-white text-2xl"><BsBook /></div>
+                    <div className="p-4 rounded-lg bg-blue-100 text-blue-600 text-3xl shadow-sm">
+                      <BsBook />
+                    </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Enrolled Courses</p>
-                      <p className="text-2xl font-semibold text-gray-900">{data.courses.length}</p>
+                      <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Enrolled Courses</p>
+                      <p className="text-3xl font-bold text-gray-800">{data.courses.length}</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-lg shadow p-6">
+                <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 border border-gray-200">
                   <div className="flex items-center">
-                    <div className="p-3 rounded-full bg-green-500 text-white text-2xl"><BsGraphUp /></div>
+                    <div className="p-4 rounded-lg bg-green-100 text-green-600 text-3xl shadow-sm">
+                      <BsGraphUp />
+                    </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Current GPA</p>
-                      <p className="text-2xl font-semibold text-gray-900">{calculateGPA()}</p>
+                      <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Current GPA</p>
+                      <p className="text-3xl font-bold text-gray-800">{calculateGPA()}</p>
                       <p className="text-xs text-gray-500 mt-1">Simple average • 4.0 scale</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-lg shadow p-6">
+                <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 border border-gray-200">
                   <div className="flex items-center">
-                    <div className="p-3 rounded-full bg-yellow-500 text-white text-2xl"><BsCheckCircle /></div>
+                    <div className="p-4 rounded-lg bg-purple-100 text-purple-600 text-3xl shadow-sm">
+                      <BsCheckCircle />
+                    </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Attendance</p>
-                      <p className="text-2xl font-semibold text-gray-900">{calculateAttendancePercentage()}%</p>
+                      <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Attendance</p>
+                      <p className="text-3xl font-bold text-gray-800">{calculateAttendancePercentage()}%</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-lg shadow p-6">
+                <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 border border-gray-200">
                   <div className="flex items-center">
-                    <div className="p-3 rounded-full bg-red-500 text-white text-2xl"><BsCash /></div>
+                    <div className="p-4 rounded-lg bg-orange-100 text-orange-600 text-3xl shadow-sm">
+                      <BsCash />
+                    </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Pending Fees</p>
-                      <p className="text-2xl font-semibold text-gray-900">${totalPendingAmount.toFixed(2)}</p>
+                      <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Pending Fees</p>
+                      <p className="text-3xl font-bold text-gray-800">${totalPendingAmount.toFixed(2)}</p>
                     </div>
                   </div>
                 </div>
@@ -438,12 +493,15 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
 
               {/* Recent Activity */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Grades</h3>
+                <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                  <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
+                    <BsGraphUp className="mr-2 text-blue-600" />
+                    Recent Grades
+                  </h3>
                   <div className="space-y-3">
                     {data.grades.slice(0, 5).map((grade, index) => (
-                      <div key={index} className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">{grade.assessment?.assessment_name}</span>
+                      <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <span className="text-sm text-gray-800">{grade.assessment?.assessment_name}</span>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           grade.percentage >= 80 ? 'bg-green-100 text-green-800' :
                           grade.percentage >= 60 ? 'bg-yellow-100 text-yellow-800' :
@@ -456,16 +514,19 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Notifications</h3>
+                <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                  <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
+                    <BsBell className="mr-2 text-orange-600" />
+                    Recent Notifications
+                  </h3>
                   <div className="space-y-3">
                     {data.notifications.slice(0, 5).map((notification, index) => (
-                      <div key={index} className="flex items-start space-x-3">
+                      <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                         <div className="shrink-0">
-                          <span className="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>
+                          <span className="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                          <p className="text-sm font-medium text-gray-800">{notification.title}</p>
                           <p className="text-xs text-gray-500">{new Date(notification.created_at).toLocaleDateString()}</p>
                         </div>
                       </div>
@@ -475,87 +536,105 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
               </div>
 
               {/* Features Summary */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Features Overview</h3>
+              <div className="bg-white rounded-lg shadow-sm p-8 hover:shadow-md transition-all duration-300 border border-gray-200">
+                <h3 className="text-2xl font-bold text-gray-800 mb-8 text-center">Features Overview</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-blue-500 text-white text-2xl"><BsPerson /></div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                    <div className="flex items-center mb-4">
+                      <div className="p-3 rounded-lg bg-blue-100 text-blue-600 text-2xl">
+                        <BsPerson />
+                      </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Profile</p>
-                        <p className="text-sm text-gray-900">ID: {data.profile?.student_id}</p>
+                        <p className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Profile</p>
+                        <p className="text-sm text-gray-600">ID: {data.profile?.student_id}</p>
                       </div>
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-green-500 text-white text-2xl"><BsBook /></div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                    <div className="flex items-center mb-4">
+                      <div className="p-3 rounded-lg bg-blue-100 text-blue-600 text-2xl">
+                        <BsBook />
+                      </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">My Courses</p>
-                        <p className="text-sm text-gray-900">{data.courses.length} courses enrolled</p>
+                        <p className="text-sm font-semibold text-gray-800 uppercase tracking-wide">My Courses</p>
+                        <p className="text-sm text-gray-600">{data.courses.length} courses enrolled</p>
                       </div>
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-indigo-500 text-white text-2xl"><BsCalendar /></div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                    <div className="flex items-center mb-4">
+                      <div className="p-3 rounded-lg bg-blue-100 text-blue-600 text-2xl">
+                        <BsCalendar />
+                      </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Assessments</p>
-                        <p className="text-sm text-gray-900">{data.assessments.length} assessments</p>
+                        <p className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Assessments</p>
+                        <p className="text-sm text-gray-600">{data.assessments.length} assessments</p>
                       </div>
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-purple-500 text-white text-2xl"><BsGraphUp /></div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                    <div className="flex items-center mb-4">
+                      <div className="p-3 rounded-lg bg-blue-100 text-blue-600 text-2xl">
+                        <BsGraphUp />
+                      </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Grades</p>
-                        <p className="text-sm text-gray-900">{data.grades.length} assessments completed</p>
+                        <p className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Grades</p>
+                        <p className="text-sm text-gray-600">{data.grades.length} assessments completed</p>
                       </div>
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-yellow-500 text-white text-2xl"><BsCheckCircle /></div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                    <div className="flex items-center mb-4">
+                      <div className="p-3 rounded-lg bg-blue-100 text-blue-600 text-2xl">
+                        <BsCheckCircle />
+                      </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Attendance</p>
-                        <p className="text-sm text-gray-900">{data.attendance.filter(a => a.status === 'present').length} days present</p>
+                        <p className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Attendance</p>
+                        <p className="text-sm text-gray-600">{data.attendance.filter(a => a.status === 'present').length} days present</p>
                       </div>
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-red-500 text-white text-2xl"><BsCash /></div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                    <div className="flex items-center mb-4">
+                      <div className="p-3 rounded-lg bg-blue-100 text-blue-600 text-2xl">
+                        <BsCash />
+                      </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Fees & Payments</p>
-                        <p className="text-sm text-gray-900">{pendingFees.length} pending fees</p>
+                        <p className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Fees & Payments</p>
+                        <p className="text-sm text-gray-600">{pendingFees.length} pending fees</p>
                       </div>
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-indigo-500 text-white text-2xl"><BsBell /></div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                    <div className="flex items-center mb-4">
+                      <div className="p-3 rounded-lg bg-blue-100 text-blue-600 text-2xl">
+                        <BsBell />
+                      </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Notifications</p>
-                        <p className="text-sm text-gray-900">{data.notifications.filter(n => !n.is_read).length} unread messages</p>
+                        <p className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Notifications</p>
+                        <p className="text-sm text-gray-600">{data.notifications.filter(n => !n.is_read).length} unread messages</p>
                       </div>
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-teal-500 text-white text-2xl"><BsHospital /></div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                    <div className="flex items-center mb-4">
+                      <div className="p-3 rounded-lg bg-blue-100 text-blue-600 text-2xl">
+                        <BsHospital />
+                      </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Health Records</p>
-                        <p className="text-sm text-gray-900">{data.healthRecords.length} health records</p>
+                        <p className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Health Records</p>
+                        <p className="text-sm text-gray-600">{data.healthRecords.length} health records</p>
                       </div>
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-orange-500 text-white text-2xl"><BsExclamationTriangle /></div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                    <div className="flex items-center mb-4">
+                      <div className="p-3 rounded-lg bg-blue-100 text-blue-600 text-2xl">
+                        <BsExclamationTriangle />
+                      </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Behavior Logs</p>
-                        <p className="text-sm text-gray-900">{data.behaviorLogs.length} behavior incidents</p>
+                        <p className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Behavior Logs</p>
+                        <p className="text-sm text-gray-600">{data.behaviorLogs.length} behavior incidents</p>
                       </div>
                     </div>
                   </div>
@@ -564,34 +643,59 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
 
               {/* Charts Section */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Attendance Trend</h3>
+                <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <BsCheckCircle className="mr-3 text-blue-600" />
+                    Attendance Trend
+                  </h3>
                   <ResponsiveContainer width="100%" height={200}>
                     <LineChart data={getAttendanceChartData()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="status" stroke="#3B82F6" strokeWidth={2} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#6b7280' }} />
+                      <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#ffffff', 
+                          border: '1px solid #e5e7eb', 
+                          borderRadius: '8px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                          color: '#374151'
+                        }}
+                      />
+                      <Line type="monotone" dataKey="status" stroke="#2563eb" strokeWidth={3} dot={{ fill: '#2563eb', strokeWidth: 2, r: 4 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
 
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Grade Distribution</h3>
+                <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <BsGraphUp className="mr-3 text-green-600" />
+                    Grade Distribution
+                  </h3>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={getGradeDistributionData()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="range" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="count" fill="#8B5CF6" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="range" tick={{ fontSize: 12, fill: '#6b7280' }} />
+                      <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#ffffff', 
+                          border: '1px solid #e5e7eb', 
+                          borderRadius: '8px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                          color: '#374151'
+                        }}
+                      />
+                      <Bar dataKey="count" fill="#059669" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
 
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Fee Payment Status</h3>
+                <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <BsCash className="mr-3 text-orange-600" />
+                    Fee Payment Status
+                  </h3>
                   <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
                       <Pie
@@ -607,7 +711,15 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#ffffff', 
+                          border: '1px solid #e5e7eb', 
+                          borderRadius: '8px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                          color: '#374151'
+                        }}
+                      />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
@@ -617,47 +729,47 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
           )}
 
           {activeTab === 'profile' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-medium text-gray-900">Student Profile</h3>
+            <div className="bg-white rounded-lg shadow-sm p-8 hover:shadow-md transition-all duration-300 border border-gray-200">
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="text-2xl font-bold text-gray-800">Student Profile</h3>
                 {!editMode ? (
                   <button
                     onClick={handleEditProfile}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 shadow-sm hover:shadow-md font-semibold"
                   >
                     Edit Profile
                   </button>
                 ) : (
-                  <div className="space-x-2">
+                  <div className="space-x-3">
                     <button
                       onClick={handleSaveProfile}
                       disabled={saving}
-                      className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400"
+                      className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-300 transform hover:scale-105 shadow-sm hover:shadow-md font-semibold disabled:bg-gray-400"
                     >
                       {saving ? 'Saving...' : 'Save'}
                     </button>
                     <button
                       onClick={handleCancelEdit}
-                      className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+                      className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all duration-300 transform hover:scale-105 shadow-sm hover:shadow-md font-semibold"
                     >
                       Cancel
                     </button>
                   </div>
                 )}
                 {errorMessage && (
-                  <div className="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                  <div className="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
                     {errorMessage}
                   </div>
                 )}
               </div>
               
               {/* Profile Picture Section */}
-              <div className="mb-6 flex items-center space-x-6">
-                <div className="w-24 h-24 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
+              <div className="mb-8 flex items-center space-x-8">
+                <div className="w-32 h-32 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden shadow-sm border-4 border-blue-200">
                   {localProfilePicture ? (
                     <img
                       src={localProfilePicture}
-                      alt="Profile"
+                      alt="Profile Preview"
                       className="w-full h-full object-cover"
                     />
                   ) : user?.profile_picture ? (
@@ -667,12 +779,12 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <BsPerson className="text-3xl text-gray-600" />
+                    <BsPerson className="text-4xl text-blue-600" />
                   )}
                 </div>
                 {editMode && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
+                  <div className="flex-1">
+                    <label className="block text-lg font-semibold text-gray-800 mb-3">Profile Picture</label>
                     <label className="block w-full cursor-pointer">
                       <input
                         type="file"
@@ -695,11 +807,11 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
                         }}
                         className="hidden"
                       />
-                      <div className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                      <div className="block w-full text-sm text-blue-600 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border-2 border-dashed border-blue-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
                         {profilePictureFile ? profilePictureFile.name : 'Click to select a file'}
                       </div>
                     </label>
-                    <p className="mt-1 text-xs text-gray-500">PNG, JPG, GIF up to 4MB</p>
+                    <p className="mt-2 text-sm text-gray-500">PNG, JPG, GIF up to 4MB</p>
                   </div>
                 )}
               </div>
@@ -707,15 +819,15 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Student ID</label>
-                  <p className="mt-1 text-sm text-gray-900">{data.profile?.student_id}</p>
+                  <p className="mt-1 text-sm text-gray-800">{data.profile?.student_id}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">First Name</label>
-                  <p className="mt-1 text-sm text-gray-900">{data.profile?.first_name}</p>
+                  <p className="mt-1 text-sm text-gray-800">{data.profile?.first_name}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Last Name</label>
-                  <p className="mt-1 text-sm text-gray-900">{data.profile?.last_name}</p>
+                  <p className="mt-1 text-sm text-gray-800">{data.profile?.last_name}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Email</label>
@@ -725,10 +837,10 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
                       name="email"
                       value={editedUser.email || ''}
                       onChange={(e) => setEditedUser({ ...editedUser, email: e.target.value })}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-800"
                     />
                   ) : (
-                    <p className="mt-1 text-sm text-gray-900">{user?.email}</p>
+                    <p className="mt-1 text-sm text-gray-800">{user?.email}</p>
                   )}
                 </div>
                 <div>
@@ -739,19 +851,19 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
                       name="username"
                       value={editedUser.username || ''}
                       onChange={(e) => setEditedUser({ ...editedUser, username: e.target.value })}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-800"
                     />
                   ) : (
-                    <p className="mt-1 text-sm text-gray-900">{user?.username}</p>
+                    <p className="mt-1 text-sm text-gray-800">{user?.username}</p>
                   )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Role</label>
-                  <p className="mt-1 text-sm text-gray-900">{user?.role}</p>
+                  <p className="mt-1 text-sm text-gray-800">{user?.role}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
-                  <p className="mt-1 text-sm text-gray-900">{data.profile?.date_of_birth ? new Date(data.profile.date_of_birth).toLocaleDateString() : 'N/A'}</p>
+                  <p className="mt-1 text-sm text-gray-800">{data.profile?.date_of_birth ? new Date(data.profile.date_of_birth).toLocaleDateString() : 'N/A'}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Gender</label>
@@ -760,7 +872,7 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
                       name="gender"
                       value={editedProfile.gender || ''}
                       onChange={handleProfileChange}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-800"
                     >
                       <option value="">Select Gender</option>
                       <option value="male">Male</option>
@@ -768,7 +880,7 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
                       <option value="other">Other</option>
                     </select>
                   ) : (
-                    <p className="mt-1 text-sm text-gray-900">{data.profile?.gender || 'N/A'}</p>
+                    <p className="mt-1 text-sm text-gray-800">{data.profile?.gender || 'N/A'}</p>
                   )}
                 </div>
                 <div>
@@ -779,10 +891,10 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
                       name="phone"
                       value={editedProfile.phone || ''}
                       onChange={handleProfileChange}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-800"
                     />
                   ) : (
-                    <p className="mt-1 text-sm text-gray-900">{data.profile?.phone || 'N/A'}</p>
+                    <p className="mt-1 text-sm text-gray-800">{data.profile?.phone || 'N/A'}</p>
                   )}
                 </div>
                 <div>
@@ -793,31 +905,31 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
                       name="address"
                       value={editedProfile.address || ''}
                       onChange={handleProfileChange}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-800"
                     />
                   ) : (
-                    <p className="mt-1 text-sm text-gray-900">{data.profile?.address || 'N/A'}</p>
+                    <p className="mt-1 text-sm text-gray-800">{data.profile?.address || 'N/A'}</p>
                   )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Enrollment Date</label>
-                  <p className="mt-1 text-sm text-gray-900">{data.profile?.enrollment_date ? new Date(data.profile.enrollment_date).toLocaleDateString() : 'N/A'}</p>
+                  <p className="mt-1 text-sm text-gray-800">{data.profile?.enrollment_date ? new Date(data.profile.enrollment_date).toLocaleDateString() : 'N/A'}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Department</label>
-                  <p className="mt-1 text-sm text-gray-900">{data.profile?.department || 'N/A'}</p>
+                  <p className="mt-1 text-sm text-gray-800">{data.profile?.department || 'N/A'}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Year</label>
-                  <p className="mt-1 text-sm text-gray-900">{data.profile?.year || 'N/A'}</p>
+                  <p className="mt-1 text-sm text-gray-800">{data.profile?.year || 'N/A'}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Status</label>
-                  <p className="mt-1 text-sm text-gray-900">{data.profile?.status || 'N/A'}</p>
+                  <p className="mt-1 text-sm text-gray-800">{data.profile?.status || 'N/A'}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Parent</label>
-                  <p className="mt-1 text-sm text-gray-900">{data.profile?.parent?.username || 'N/A'}</p>
+                  <p className="mt-1 text-sm text-gray-800">{data.profile?.parent?.username || 'N/A'}</p>
                 </div>
               </div>
             </div>
@@ -863,10 +975,10 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
           {activeTab === 'grades' && (
             <div className="space-y-6">
               {/* GPA Calculation Info */}
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+              <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
                 <div className="flex">
                   <div className="shrink-0">
-                    <BsGraphUp className="h-5 w-5 text-blue-400" />
+                    <BsGraphUp className="h-5 w-5 text-blue-600" />
                   </div>
                   <div className="ml-3">
                     <h3 className="text-sm font-medium text-blue-800">GPA Calculation Method</h3>
@@ -904,21 +1016,21 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
 
           {activeTab === 'attendance' && (
             <div className="space-y-6">
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Attendance Summary</h3>
+              <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                <h3 className="text-lg font-medium text-gray-800 mb-4">Attendance Summary</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-green-600">{calculateAttendancePercentage()}%</div>
+                    <div className="text-3xl font-bold text-blue-600 mb-2">{calculateAttendancePercentage()}%</div>
                     <div className="text-sm text-gray-600">Overall Attendance</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-600">
+                    <div className="text-3xl font-bold text-green-600 mb-2">
                       {data.attendance.filter(a => a.status === 'present').length}
                     </div>
                     <div className="text-sm text-gray-600">Present Days</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-red-600">
+                    <div className="text-3xl font-bold text-red-600 mb-2">
                       {data.attendance.filter(a => a.status === 'absent').length}
                     </div>
                     <div className="text-sm text-gray-600">Absent Days</div>
@@ -947,14 +1059,14 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
           {activeTab === 'fees' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Pending Fees</h3>
-                  <div className="text-3xl font-bold text-red-600 mb-2">${totalPendingAmount.toFixed(2)}</div>
+                <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                  <h3 className="text-lg font-medium text-gray-800 mb-4">Pending Fees</h3>
+                  <div className="text-3xl font-bold text-orange-600 mb-2">${totalPendingAmount.toFixed(2)}</div>
                   <div className="text-sm text-gray-600">{pendingFees.length} pending payments</div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Payment History</h3>
+                <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                  <h3 className="text-lg font-medium text-gray-800 mb-4">Payment History</h3>
                   <div className="text-3xl font-bold text-green-600 mb-2">
                     ${data.payments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0).toFixed(2)}
                   </div>
@@ -1037,10 +1149,10 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
 
           {activeTab === 'study-materials' && (
             <div className="space-y-6">
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+              <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
                 <div className="flex">
                   <div className="shrink-0">
-                    <BsBook className="h-5 w-5 text-blue-400" />
+                    <BsBook className="h-5 w-5 text-blue-600" />
                   </div>
                   <div className="ml-3">
                     <h3 className="text-sm font-medium text-blue-800">Study Materials</h3>
@@ -1070,8 +1182,8 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
                 }, {});
 
                 return Object.entries(groupedMaterials).map(([courseName, modules]) => (
-                  <div key={courseName} className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">{courseName}</h3>
+                  <div key={courseName} className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-300 border border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">{courseName}</h3>
                     {Object.entries(modules).map(([moduleName, materials]) => (
                       <div key={moduleName} className="mb-6 last:mb-0">
                         <h4 className="text-md font-medium text-gray-700 mb-3 border-b pb-2">
@@ -1079,9 +1191,9 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
                         </h4>
                         <div className="space-y-3">
                           {materials.map((material) => (
-                            <div key={material.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div key={material.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                               <div className="flex-1">
-                                <h5 className="text-sm font-medium text-gray-900">{material.title}</h5>
+                                <h5 className="text-sm font-medium text-gray-800">{material.title}</h5>
                                 {material.description && (
                                   <p className="text-sm text-gray-600 mt-1">{material.description}</p>
                                 )}
@@ -1116,10 +1228,10 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
               })()}
 
               {data.studyMaterials.filter(material => material.is_visible).length === 0 && (
-                <div className="bg-white rounded-lg shadow p-6 text-center">
+                <div className="bg-white rounded-lg shadow-sm p-6 text-center hover:shadow-md transition-all duration-300 border border-gray-200">
                   <BsBook className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No study materials available</h3>
-                  <p className="mt-1 text-sm text-gray-500">Study materials will appear here when your instructors upload them.</p>
+                  <h3 className="mt-2 text-sm font-medium text-gray-800">No study materials available</h3>
+                  <p className="mt-1 text-sm text-gray-600">Study materials will appear here when your instructors upload them.</p>
                 </div>
               )}
             </div>
@@ -1132,21 +1244,21 @@ const StudentDashboard = ({ user, setUser, onLogout }) => {
 
 // Reusable DataTable component
 const DataTable = ({ title, data, columns, onMarkAsRead, onDownload }) => (
-  <div className="bg-white rounded-lg shadow overflow-hidden">
-    <div className="px-6 py-4 border-b border-gray-200">
-      <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+  <div className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-all duration-300 border border-gray-200">
+    <div className="px-8 py-6 border-b border-gray-200 bg-gray-50">
+      <h3 className="text-xl font-bold text-gray-800">{title}</h3>
     </div>
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
             {columns.map((col, index) => (
-              <th key={index} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th key={index} className="px-8 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
                 {col.label}
               </th>
             ))}
             {(onMarkAsRead || onDownload) && (
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-8 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
                 Actions
               </th>
             )}
@@ -1154,27 +1266,29 @@ const DataTable = ({ title, data, columns, onMarkAsRead, onDownload }) => (
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
           {data.map((row, index) => (
-            <tr key={index} className="hover:bg-gray-50">
+            <tr key={index} className="hover:bg-gray-50 transition-colors duration-200">
               {columns.map((col, colIndex) => (
-                <td key={colIndex} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td key={colIndex} className="px-8 py-4 whitespace-nowrap text-sm text-gray-800">
                   {col.render ? col.render(getNestedValue(row, col.key), row) : getNestedValue(row, col.key)}
                 </td>
               ))}
               {(onMarkAsRead || onDownload) && (
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <td className="px-8 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                   {onMarkAsRead && !row.is_read && (
                     <button
                       onClick={() => onMarkAsRead(row.id)}
-                      className="text-blue-600 hover:text-blue-900 mr-4"
+                      className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 shadow-sm"
                     >
+                      <BsBell className="mr-1" />
                       Mark as Read
                     </button>
                   )}
                   {onDownload && (
                     <button
                       onClick={() => onDownload(row)}
-                      className="text-green-600 hover:text-green-900"
+                      className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors duration-200 shadow-sm"
                     >
+                      <BsBook className="mr-1" />
                       Download
                     </button>
                   )}
