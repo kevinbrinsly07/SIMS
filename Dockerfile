@@ -35,20 +35,11 @@ RUN echo '<VirtualHost *:80>\n\
 # Copy backend code
 COPY backend/ .
 
-# Ensure .env exists
-RUN cp .env.example .env || echo ".env.example not found, skipping"
-
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
 
 # Install Node dependencies and build assets
 RUN npm install && npm run build
-
-# Generate application key if not set
-RUN php artisan key:generate --no-interaction
-
-# Cache configuration
-RUN php artisan config:cache && php artisan route:cache && php artisan view:cache
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html \
