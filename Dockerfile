@@ -23,6 +23,9 @@ WORKDIR /var/www/html
 # Copy backend code
 COPY backend/ .
 
+# Ensure .env exists
+RUN cp .env.example .env || echo ".env.example not found, skipping"
+
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
 
