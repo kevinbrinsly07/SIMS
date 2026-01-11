@@ -20,14 +20,11 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy composer files first for better caching
-COPY backend/composer.json backend/composer.lock ./
+# Copy backend code
+COPY backend/ .
 
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
-
-# Copy the rest of the backend code
-COPY backend/ .
 
 # Install Node dependencies and build assets
 RUN npm install && npm run build
