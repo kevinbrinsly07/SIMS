@@ -41,6 +41,10 @@ RUN composer install --no-dev --optimize-autoloader
 # Install Node dependencies and build assets
 RUN npm install && npm run build
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html/storage
@@ -48,5 +52,5 @@ RUN chown -R www-data:www-data /var/www/html \
 # Expose port 80
 EXPOSE 80
 
-# Start Apache
-CMD ["apache2-foreground"]
+# Use entrypoint script to run migrations before starting Apache
+ENTRYPOINT ["docker-entrypoint.sh"]
