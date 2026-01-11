@@ -26,7 +26,7 @@ const Login = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-ink-black to-prussian-blue px-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-gray-100 to-white px-4">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <div className="mx-auto h-16 w-16 bg-oxford-navy rounded-full flex items-center justify-center">
@@ -42,7 +42,7 @@ const Login = ({ onLogin }) => {
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="bg-[#001d3d] py-8 px-6 shadow-lg rounded-lg space-y-4">
+          <div className="py-8 px-6 shadow-lg rounded-lg space-y-4">
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
                 {error}
